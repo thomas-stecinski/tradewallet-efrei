@@ -1,16 +1,9 @@
 import { Routes } from '@angular/router';
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { TransactionListComponent } from './components/transaction-list.component';
+import { TransactionFormComponent } from './components/transaction-form.component';
 
-@Component({
-  standalone: true,
-  selector: 'app-transactions',
-  imports: [CommonModule],
-  template: `
-    <h1 class="text-2xl font-bold">Transactions</h1>
-    <p class="text-gray-600 text-sm">Stub – contenu à venir.</p>
-  `,
-})
-class TransactionsPage {}
-
-export const TRANSACTIONS_ROUTES: Routes = [{ path: '', component: TransactionsPage }];
+export const TRANSACTIONS_ROUTES: Routes = [
+  { path: '', component: TransactionListComponent },
+  { path: 'new', component: TransactionFormComponent },
+  { path: ':id/edit', component: TransactionFormComponent },
+];
