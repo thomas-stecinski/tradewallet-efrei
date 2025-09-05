@@ -1,20 +1,31 @@
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
-  FormBuilder,
-  FormGroup,
-  Validators,
-  ReactiveFormsModule,
   AbstractControl,
-  ValidationErrors,
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidatorFn,
+  Validators,
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
-function passwordMatchValidator(group: AbstractControl): ValidationErrors | null {
-  const p = group.get('password')?.value;
-  const c = group.get('confirmPassword')?.value;
-  return p && c && p !== c ? { passwordMismatch: true } : null;
+interface RegisterForm {
+  name: FormControl<string>;
+  email: FormControl<string>;
+  password: FormControl<string>;
+  confirmPassword: FormControl<string>;
+}
+
+function passwordMatchValidator(): ValidatorFn {
+  return (group: AbstractControl): { passwordMismatch: true } | null => {
+    const password = group.get('password')?.value as string | undefined;
+    const confirm = group.get('confirmPassword')?.value as string | undefined;
+    if (!password || !confirm) return null;
+    return password === confirm ? null : { passwordMismatch: true };
+  };
 }
 
 @Component({
@@ -27,103 +38,73 @@ function passwordMatchValidator(group: AbstractControl): ValidationErrors | null
         <h1 class="text-2xl font-bold text-gray-900 text-center">Créer un compte</h1>
 
         <form [formGroup]="form" (ngSubmit)="onSubmit()" class="mt-6 space-y-4" novalidate>
-          <!-- Name -->
+          <!-- Nom -->
           <div>
-            <label for="register-name" class="block text-sm text-gray-700 mb-1">Nom</label>
+            <label for="reg-name" class="block text-sm text-gray-700 mb-1">Nom</label>
             <input
-              id="register-name"
+              id="reg-name"
               type="text"
               formControlName="name"
               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
               [class.border-red-500]="invalid('name')"
               autocomplete="name"
               required
-              [attr.aria-invalid]="invalid('name')"
-              [attr.aria-describedby]="invalid('name') ? 'register-name-error' : null"
             />
             @if (invalid('name')) {
-              <p id="register-name-error" class="text-sm text-red-600 mt-1">
-                {{ errorOf('name') }}
-              </p>
+              <p class="text-sm text-red-600 mt-1">Nom requis</p>
             }
           </div>
 
           <!-- Email -->
           <div>
-            <label for="register-email" class="block text-sm text-gray-700 mb-1">Email</label>
+            <label for="reg-email" class="block text-sm text-gray-700 mb-1">Email</label>
             <input
-              id="register-email"
+              id="reg-email"
               type="email"
               formControlName="email"
               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
               [class.border-red-500]="invalid('email')"
               autocomplete="email"
               required
-              [attr.aria-invalid]="invalid('email')"
-              [attr.aria-describedby]="invalid('email') ? 'register-email-error' : null"
             />
             @if (invalid('email')) {
-              <p id="register-email-error" class="text-sm text-red-600 mt-1">
-                {{ errorOf('email') }}
-              </p>
+              <p class="text-sm text-red-600 mt-1">Email invalide</p>
             }
           </div>
 
-          <!-- Password -->
+          <!-- Mot de passe -->
           <div>
-            <label for="register-password" class="block text-sm text-gray-700 mb-1"
-              >Mot de passe</label
-            >
+            <label for="reg-pass" class="block text-sm text-gray-700 mb-1">Mot de passe</label>
             <input
-              id="register-password"
+              id="reg-pass"
               type="password"
               formControlName="password"
               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
               [class.border-red-500]="invalid('password')"
               autocomplete="new-password"
               required
-              [attr.aria-invalid]="invalid('password')"
-              [attr.aria-describedby]="invalid('password') ? 'register-password-error' : null"
             />
             @if (invalid('password')) {
-              <p id="register-password-error" class="text-sm text-red-600 mt-1">
-                {{ errorOf('password') }}
-              </p>
+              <p class="text-sm text-red-600 mt-1">Minimum 6 caractères</p>
             }
           </div>
 
-          <!-- Confirm -->
+          <!-- Confirmation -->
           <div>
-            <label for="register-confirm" class="block text-sm text-gray-700 mb-1">
-              Confirmer le mot de passe
-            </label>
+            <label for="reg-pass2" class="block text-sm text-gray-700 mb-1">Confirmer</label>
             <input
-              id="register-confirm"
+              id="reg-pass2"
               type="password"
               formControlName="confirmPassword"
               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring"
               [class.border-red-500]="
-                invalid('confirmPassword') || form.errors?.['passwordMismatch']
+                form.hasError('passwordMismatch') && form.get('confirmPassword')?.touched
               "
               autocomplete="new-password"
               required
-              [attr.aria-invalid]="
-                invalid('confirmPassword') || !!form.errors?.['passwordMismatch']
-              "
-              [attr.aria-describedby]="
-                invalid('confirmPassword') || form.errors?.['passwordMismatch']
-                  ? 'register-confirm-error'
-                  : null
-              "
             />
-            @if (invalid('confirmPassword') || form.errors?.['passwordMismatch']) {
-              <p id="register-confirm-error" class="text-sm text-red-600 mt-1">
-                {{
-                  form.errors?.['passwordMismatch']
-                    ? 'Les mots de passe ne correspondent pas'
-                    : errorOf('confirmPassword')
-                }}
-              </p>
+            @if (form.hasError('passwordMismatch') && form.get('confirmPassword')?.touched) {
+              <p class="text-sm text-red-600 mt-1">Les mots de passe ne correspondent pas</p>
             }
           </div>
 
@@ -157,18 +138,35 @@ export class RegisterComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
-  form: FormGroup = this.fb.group(
+  form: FormGroup<RegisterForm> = this.fb.group(
     {
-      name: ['', [Validators.required, Validators.minLength(2)]],
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', [Validators.required]],
+      name: this.fb.control('', {
+        nonNullable: true,
+        validators: [Validators.required, Validators.minLength(2)],
+      }),
+      email: this.fb.control('', {
+        nonNullable: true,
+        validators: [Validators.required, Validators.email],
+      }),
+      password: this.fb.control('', {
+        nonNullable: true,
+        validators: [Validators.required, Validators.minLength(6)],
+      }),
+      confirmPassword: this.fb.control('', {
+        nonNullable: true,
+        validators: [Validators.required, Validators.minLength(6)],
+      }),
     },
-    { validators: passwordMatchValidator },
+    { validators: [passwordMatchValidator()] },
   );
 
   loading = signal(false);
-  error = signal<string>('');
+  error = signal('');
+
+  invalid<K extends keyof RegisterForm>(key: K): boolean {
+    const c = this.form.get(key);
+    return !!(c && c.invalid && (c.dirty || c.touched));
+  }
 
   async onSubmit() {
     if (this.form.invalid) return;
@@ -176,29 +174,14 @@ export class RegisterComponent {
     this.loading.set(true);
     this.error.set('');
 
-    const payload = this.form.getRawValue();
-
     try {
-      await this.auth.register(payload); // <- Promise<User>
+      const { name, email, password, confirmPassword } = this.form.getRawValue();
+      await this.auth.register({ name, email, password, confirmPassword });
+      await this.router.navigateByUrl('/dashboard');
+    } catch (e) {
+      this.error.set(e instanceof Error ? e.message : 'Erreur lors de la création du compte');
+    } finally {
       this.loading.set(false);
-      this.router.navigate(['/']);
-    } catch (err: unknown) {
-      this.loading.set(false);
-      this.error.set(err instanceof Error ? err.message : 'Erreur lors de la création du compte');
     }
-  }
-
-  invalid(ctrl: keyof typeof this.form.value): boolean {
-    const c = this.form.get(ctrl as string);
-    return !!(c && c.invalid && (c.dirty || c.touched));
-  }
-
-  errorOf(ctrl: keyof typeof this.form.value): string {
-    const c = this.form.get(ctrl as string);
-    if (!c?.errors) return '';
-    if (c.errors['required']) return 'Ce champ est requis';
-    if (c.errors['email']) return "Format d'email invalide";
-    if (c.errors['minlength']) return `Minimum ${c.errors['minlength'].requiredLength} caractères`;
-    return 'Champ invalide';
   }
 }
