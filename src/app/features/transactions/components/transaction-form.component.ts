@@ -74,6 +74,7 @@ function positive(control: AbstractControl): ValidationErrors | null {
               <option value="stock">Action</option>
               <option value="etf">ETF</option>
               <option value="crypto">Crypto</option>
+              <option value="livret">Livrets</option>
             </select>
           </div>
 
