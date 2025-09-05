@@ -1,3 +1,4 @@
+// src/app/features/auth/components/login/login.component.ts
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -106,8 +107,10 @@ export class LoginComponent {
     try {
       await this.auth.login(creds); // <- Promise<User>
       this.loading.set(false);
-      const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/';
-      this.router.navigateByUrl(returnUrl);
+
+      // défaut: /dashboard ; si on venait d’un guard, on respecte returnUrl
+      const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
+      await this.router.navigate([returnUrl]);
     } catch (err: unknown) {
       this.loading.set(false);
       this.error.set(err instanceof Error ? err.message : 'Erreur de connexion');
