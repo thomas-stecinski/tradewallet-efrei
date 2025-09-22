@@ -7,10 +7,13 @@ import type { Transaction } from '../../../core/models/transaction.model';
 export type Range = '7d' | '30d' | '12m' | 'all';
 type Bucket = 'day' | 'month';
 
+// ✅ AJOUT de 'livret' partout où il faut
+export type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
+
 export interface DashboardFilters {
-  range: Range; // 7d | 30d | 12m | all
+  range: Range;
   portfolioId: number | 'all';
-  assetType: '' | 'stock' | 'etf' | 'crypto';
+  assetType: '' | AssetType; // ✅ accepte '' et livret
   symbol: string; // symbole exact (MAJ), vide => tous
 }
 
@@ -31,12 +34,10 @@ function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 function dayLabel(key: string): string {
-  // YYYY-MM-DD -> DD/MM
   const [, m, d] = key.split('-');
   return `${d}/${m}`;
 }
 function monthLabel(key: string): string {
-  // YYYY-MM -> MM/YYYY
   const [y, m] = key.split('-');
   return `${m}/${y}`;
 }
@@ -78,7 +79,7 @@ export class DashboardDeriveService {
   filters = signal<DashboardFilters>({
     range: '12m',
     portfolioId: 'all',
-    assetType: '',
+    assetType: '', // ✅ par défaut: tous actifs
     symbol: '',
   });
 
@@ -90,6 +91,7 @@ export class DashboardDeriveService {
   });
 
   /* -------- Options pour les menus -------- */
+  // Liste de symboles (normalisés en MAJ). Tu peux la filtrer par assetType si tu veux.
   readonly symbols = computed(() => {
     const s = new Set<string>();
     for (const t of this.mine()) s.add(t.symbol.toUpperCase());
@@ -106,7 +108,6 @@ export class DashboardDeriveService {
     const { range, portfolioId, assetType, symbol } = this.filters();
     const sym = symbol.trim().toUpperCase();
 
-    // Détermine bucket + clés
     const bucket: Bucket = range === '7d' || range === '30d' ? 'day' : 'month';
 
     let keys: string[] = [];
@@ -114,7 +115,6 @@ export class DashboardDeriveService {
     else if (range === '30d') keys = lastNDaysKeys(30);
     else if (range === '12m') keys = lastNMonthsKeys(12);
     else {
-      // all : couvre tout l’historique (par mois)
       const list = this.mine();
       if (list.length === 0) keys = lastNMonthsKeys(1);
       else {
@@ -128,7 +128,7 @@ export class DashboardDeriveService {
 
     for (const t of this.mine()) {
       if (portfolioId !== 'all' && t.portfolioId !== portfolioId) continue;
-      if (assetType && t.assetType !== assetType) continue;
+      if (assetType && t.assetType !== assetType) continue; // ✅ “livret” accepté ici
       if (sym && t.symbol.toUpperCase() !== sym) continue;
 
       const k = bucket === 'day' ? dayKey(t.createdAt) : monthKey(t.createdAt);
