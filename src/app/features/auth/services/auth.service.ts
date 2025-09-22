@@ -7,7 +7,6 @@ const isBrowser = typeof window !== 'undefined' && !!window.localStorage;
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  // NB: loadUsers/loadCurrent sont SSR-safe (ne lisent pas LS côté serveur)
   private usersSig = signal<User[]>(this.loadUsers());
   private currentUserSig = signal<User | null>(this.loadCurrent());
 
@@ -43,9 +42,11 @@ export class AuthService {
 
     const newUser: User = {
       id: Date.now(),
-      name: payload.name ?? payload.email.split('@')[0],
-      email: payload.email,
-      password: payload.password, // mock uniquement
+      name: payload.name?.trim() || payload.email.split('@')[0],
+      firstName: payload.firstName?.trim() || '',
+      email: payload.email.trim(),
+      phone: payload.phone,
+      password: payload.password, // (mock)
       role: 'user',
       createdAt: new Date(),
     };
@@ -66,33 +67,76 @@ export class AuthService {
     if (isBrowser) window.localStorage.removeItem(LS_CURRENT_KEY);
   }
 
-  // ---------- LocalStorage helpers (SSR-safe) ----------
+  // ---------- Helpers (pas de `any`, ok avec noPropertyAccessFromIndexSignature) ----------
+
+  private getString(r: Record<string, unknown>, key: string): string {
+    const v = r[key];
+    return typeof v === 'string' ? v : '';
+  }
+  private getNumber(r: Record<string, unknown>, key: string, fallback: number): number {
+    const v = r[key];
+    return typeof v === 'number' ? v : fallback;
+  }
+  private getRole(r: Record<string, unknown>, key: string): 'user' | 'admin' {
+    const v = r[key];
+    return v === 'admin' ? 'admin' : 'user';
+  }
+  private getDate(r: Record<string, unknown>, key: string): Date {
+    const v = r[key];
+    if (typeof v === 'string') {
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? new Date() : d;
+    }
+    if (v instanceof Date) return v;
+    return new Date();
+  }
+
+  /** Convertit un objet inconnu (depuis LS) en User valide ou null */
+  private normalizeUser(raw: unknown): User | null {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const r = raw as Record<string, unknown>;
+
+    const id = this.getNumber(r, 'id', Date.now());
+    const name = this.getString(r, 'name');
+    const firstName = this.getString(r, 'firstName');
+    const email = this.getString(r, 'email');
+    const phone = this.getString(r, 'phone');
+    const password = this.getString(r, 'password');
+    const role = this.getRole(r, 'role');
+    const createdAt = this.getDate(r, 'createdAt');
+
+    if (!email) return null;
+
+    return { id, name, firstName, email, phone, password, role, createdAt };
+  }
+
+  // ---------- LocalStorage helpers ----------
 
   private loadUsers(): User[] {
-    // seed par défaut (admin + user)
     const seed: User[] = [
       {
         id: 1,
-        name: 'admin',
+        name: 'Admin',
+        firstName: 'Super',
         email: 'admin@gmail.com',
+        phone: '+33100000001',
         password: 'admin123',
         role: 'admin',
         createdAt: new Date(),
       },
       {
         id: 2,
-        name: 'user',
+        name: 'User',
+        firstName: 'Test',
         email: 'user@gmail.com',
+        phone: '+33100000002',
         password: 'user123',
         role: 'user',
         createdAt: new Date(),
       },
     ];
 
-    if (!isBrowser) {
-      // Côté serveur : pas de LS → on renvoie un snapshot mémoire
-      return seed;
-    }
+    if (!isBrowser) return seed;
 
     const raw = window.localStorage.getItem(LS_USERS_KEY);
     if (!raw) {
@@ -101,13 +145,13 @@ export class AuthService {
     }
 
     try {
-      const parsed = JSON.parse(raw) as User[];
-      // revival Dates
-      parsed.forEach((u) => {
-        if (typeof u.createdAt === 'string') u.createdAt = new Date(u.createdAt);
-      });
-      return parsed;
-    } catch {
+      const parsedUnknown = JSON.parse(raw) as unknown;
+      const arr = Array.isArray(parsedUnknown) ? parsedUnknown : [];
+      const normalized = arr.map((x) => this.normalizeUser(x)).filter((x): x is User => x !== null);
+
+      return normalized.length ? normalized : seed;
+    } catch (err) {
+      console.warn('loadUsers(): JSON parse/localStorage failed, using seed.', err);
       window.localStorage.setItem(LS_USERS_KEY, JSON.stringify(seed));
       return seed;
     }
@@ -117,8 +161,8 @@ export class AuthService {
     if (!isBrowser) return;
     try {
       window.localStorage.setItem(LS_USERS_KEY, JSON.stringify(users));
-    } catch {
-      /* ignore quota errors */
+    } catch (err) {
+      console.warn('saveUsers(): localStorage setItem failed.', err);
     }
   }
 
@@ -126,11 +170,13 @@ export class AuthService {
     if (!isBrowser) return null;
     const raw = window.localStorage.getItem(LS_CURRENT_KEY);
     if (!raw) return null;
+
     try {
-      const u = JSON.parse(raw) as User;
-      if (u && typeof u.createdAt === 'string') u.createdAt = new Date(u.createdAt);
-      return u;
-    } catch {
+      const parsedUnknown = JSON.parse(raw) as unknown;
+      const user = this.normalizeUser(parsedUnknown);
+      return user;
+    } catch (err) {
+      console.warn('loadCurrent(): JSON parse/localStorage failed.', err);
       return null;
     }
   }
@@ -140,8 +186,8 @@ export class AuthService {
     try {
       if (user) window.localStorage.setItem(LS_CURRENT_KEY, JSON.stringify(user));
       else window.localStorage.removeItem(LS_CURRENT_KEY);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.warn('saveCurrent(): localStorage write/remove failed.', err);
     }
   }
 }
