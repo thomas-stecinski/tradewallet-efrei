@@ -26,6 +26,9 @@ import { AuthService } from '../../auth/services/auth.service';
             class="w-full border rounded-lg px-3 py-2"
             placeholder="Ex: CTO, PEA, Crypto..."
           />
+          @if (nameError) {
+            <p class="text-xs text-red-600 mt-1">Le nom ne peut pas être vide.</p>
+          }
         </div>
         <button
           (click)="create()"
@@ -81,6 +84,7 @@ export class PortfolioPage {
 
   list = signal<Portfolio[]>([]);
   newName = '';
+  nameError = false;
   editId = signal<number | null>(null);
   editName = '';
 
@@ -97,7 +101,11 @@ export class PortfolioPage {
   create() {
     const u = this.auth.currentUser();
     if (!u) return;
-    this.pf.create(u.id, this.newName.trim());
+    const trimmed = this.newName.trim();
+    this.nameError = trimmed.length === 0;
+    if (this.nameError) return;
+
+    this.pf.create(u.id, trimmed);
     this.newName = '';
     this.refresh();
   }

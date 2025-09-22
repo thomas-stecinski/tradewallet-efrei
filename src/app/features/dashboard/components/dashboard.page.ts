@@ -44,7 +44,7 @@ import { DashboardDeriveService, Range } from '../services/dashboard-derive.serv
             }
           </select>
 
-          <!-- AssetType -->
+          <!-- AssetType (avec Livret) -->
           <select
             class="border rounded-lg px-3 py-2"
             [ngModel]="assetType()"
@@ -54,32 +54,55 @@ import { DashboardDeriveService, Range } from '../services/dashboard-derive.serv
             <option value="stock">Action</option>
             <option value="etf">ETF</option>
             <option value="crypto">Crypto</option>
+            <option value="livret">Livret</option>
           </select>
 
-          <!-- Symbol combo -->
-          <div class="relative">
-            <input
-              class="border rounded-lg px-3 py-2 w-44"
-              [ngModel]="symbolInput()"
-              (ngModelChange)="onSymbolInput($event)"
-              (focus)="openSymbols.set(true)"
-              (blur)="onSymbolBlur()"
-              placeholder="Symbole (AAPL)"
-            />
-            @if (openSymbols() && filteredSymbols().length > 0) {
-              <ul
-                class="absolute z-50 mt-1 max-h-56 w-44 overflow-auto rounded-lg border bg-white shadow"
-              >
-                @for (s of filteredSymbols(); track s) {
-                  <li
-                    (mousedown)="pickSymbol(s)"
-                    class="px-3 py-1.5 text-sm hover:bg-gray-50 cursor-pointer"
-                  >
-                    {{ s }}
-                  </li>
+          <!-- Symbol combo robuste -->
+          <div class="flex items-center gap-2">
+            <!-- Input + datalist -->
+            <div class="relative">
+              <input
+                id="symbolInput"
+                class="border rounded-lg px-3 py-2 w-48"
+                [ngModel]="symbolInput()"
+                (ngModelChange)="onSymbolInput($event)"
+                placeholder="Symbole (AAPL)"
+                list="dashboardSymbolOptions"
+                autocomplete="off"
+                (keydown.escape)="clearSymbol()"
+              />
+              <datalist id="dashboardSymbolOptions">
+                @for (s of limitedSymbols(); track s) {
+                  <option [value]="s"></option>
                 }
-              </ul>
-            }
+              </datalist>
+            </div>
+
+            <!-- Select natif (le plus fiable pour dérouler vite) -->
+            <select
+              class="border rounded-lg px-2 py-2"
+              [disabled]="allSymbols().length === 0"
+              (change)="pickFromSelect($any($event.target).value)"
+            >
+              <option value="">
+                {{ allSymbols().length ? '— Choisir un symbole —' : 'Aucun symbole' }}
+              </option>
+              @for (s of allSymbols(); track s) {
+                <option [value]="s">{{ s }}</option>
+              }
+            </select>
+
+            <!-- Effacer -->
+            <button
+              type="button"
+              class="px-2 py-2 border rounded-lg text-sm"
+              [disabled]="!symbolInput()"
+              (click)="clearSymbol()"
+              aria-label="Effacer le symbole"
+              title="Effacer le symbole"
+            >
+              ×
+            </button>
           </div>
 
           <button class="px-3 py-2 rounded-lg border hover:bg-gray-50" (click)="reset()">
@@ -141,50 +164,55 @@ export class DashboardPageComponent {
 
   // --- Symbol combo state ---
   symbolInput = signal<string>(''); // ce que tape l’utilisateur
-  openSymbols = signal<boolean>(false);
 
-  filteredSymbols = computed(() => {
-    const q = this.symbolInput().toUpperCase().trim();
-    const all = this.d.symbols();
-    if (!q) return all.slice(0, 20);
-    return all.filter((s) => s.includes(q)).slice(0, 20);
-  });
+  // Liste complète (normalisée) depuis le service
+  allSymbols = computed<string[]>(() => (this.d.symbols?.() ?? []).map((s) => this.normalize(s)));
+  // Datalist limitée (perfs)
+  limitedSymbols = computed<string[]>(() => this.allSymbols().slice(0, 200));
 
   /* Handlers filtres */
   setRange(r: Range) {
     this.d.filters.update((f) => ({ ...f, range: r }));
   }
+
   setPortfolio(p: number | 'all' | string) {
     const val = p === 'all' || p === '' ? 'all' : Number(p);
     this.d.filters.update((f) => ({ ...f, portfolioId: val }));
   }
-  setAssetType(a: '' | 'stock' | 'etf' | 'crypto') {
+
+  // ⚠️ nécessite que DashboardDeriveService accepte bien 'livret'
+  setAssetType(a: '' | 'stock' | 'etf' | 'crypto' | 'livret') {
     this.d.filters.update((f) => ({ ...f, assetType: a }));
+    // Si tu veux effacer le symbole à chaque changement d’actif :
+    // this.clearSymbol();
   }
 
+  // --- Symbol UX
   onSymbolInput(v: string) {
-    this.symbolInput.set(v);
-    // N’applique le filtre symbole que si ça correspond exactement à une entrée
-    const up = (v || '').toUpperCase().trim();
+    const up = this.normalize(v);
+    this.symbolInput.set(up);
+
     if (!up) {
       this.d.filters.update((f) => ({ ...f, symbol: '' }));
       return;
     }
-    if (this.d.symbols().includes(up)) {
+    // Applique le filtre uniquement si le symbole existe (évite les faux-positifs)
+    if (this.allSymbols().includes(up)) {
       this.d.filters.update((f) => ({ ...f, symbol: up }));
     } else {
-      this.d.filters.update((f) => ({ ...f, symbol: '' })); // évite de filtrer “trop”
+      this.d.filters.update((f) => ({ ...f, symbol: '' }));
     }
   }
 
-  pickSymbol(s: string) {
-    this.symbolInput.set(s);
-    this.d.filters.update((f) => ({ ...f, symbol: s }));
-    this.openSymbols.set(false);
+  pickFromSelect(symbol: string) {
+    const up = this.normalize(symbol);
+    this.symbolInput.set(up);
+    this.d.filters.update((f) => ({ ...f, symbol: up }));
   }
-  onSymbolBlur() {
-    // petit délai pour laisser le mousedown passer
-    setTimeout(() => this.openSymbols.set(false), 100);
+
+  clearSymbol() {
+    this.symbolInput.set('');
+    this.d.filters.update((f) => ({ ...f, symbol: '' }));
   }
 
   reset() {
@@ -199,10 +227,16 @@ export class DashboardPageComponent {
     scales: { y: { beginAtZero: true } },
     plugins: { legend: { display: false } },
   };
+
   lineData: Signal<ChartConfiguration<'line'>['data']> = computed(() => ({
     labels: this.series().map((p) => p.label),
     datasets: [
       { label: 'Total', data: this.series().map((p) => p.total), tension: 0.3, fill: false },
     ],
   }));
+
+  // Utils
+  private normalize(s: string) {
+    return (s || '').trim().toUpperCase();
+  }
 }
