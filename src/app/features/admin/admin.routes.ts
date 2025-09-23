@@ -1,16 +1,19 @@
+// src/app/features/admin/admin.routes.ts
 import { Routes } from '@angular/router';
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { AdminLayoutComponent } from './components/admin-layout.component';
+import { AdminOverviewPageComponent } from './components/admin-overview-page.component';
+import { AdminUsersPageComponent } from './components/admin-users-page.component';
+import { AdminTransactionsPageComponent } from './components/admin-transactions-page.component';
 
-@Component({
-  standalone: true,
-  selector: 'app-admin',
-  imports: [CommonModule],
-  template: `
-    <h1 class="text-2xl font-bold">Admin</h1>
-    <p class="text-gray-600 text-sm">Accès réservé aux administrateurs.</p>
-  `,
-})
-class AdminPage {}
-
-export const ADMIN_ROUTES: Routes = [{ path: '', component: AdminPage }];
+export const ADMIN_ROUTES: Routes = [
+  {
+    path: '',
+    component: AdminLayoutComponent,
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'overview' },
+      { path: 'overview', component: AdminOverviewPageComponent },
+      { path: 'users', component: AdminUsersPageComponent },
+      { path: 'transactions', component: AdminTransactionsPageComponent },
+    ],
+  },
+];

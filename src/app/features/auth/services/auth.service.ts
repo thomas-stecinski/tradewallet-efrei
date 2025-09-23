@@ -1,3 +1,4 @@
+// src/app/features/auth/services/auth.service.ts
 import { Injectable, signal, computed } from '@angular/core';
 import { User, LoginRequest, RegisterRequest } from '../../../../app/core/models/user.model';
 
@@ -18,6 +19,8 @@ export class AuthService {
   private delay(ms = 350) {
     return new Promise((res) => setTimeout(res, ms));
   }
+
+  /* -------------------- Auth (login/register/logout) -------------------- */
 
   async login(payload: LoginRequest): Promise<User> {
     await this.delay();
@@ -67,7 +70,7 @@ export class AuthService {
     if (isBrowser) window.localStorage.removeItem(LS_CURRENT_KEY);
   }
 
-  // ---------- Helpers (pas de `any`, ok avec noPropertyAccessFromIndexSignature) ----------
+  /* -------------------- Helpers de normalisation -------------------- */
 
   private getString(r: Record<string, unknown>, key: string): string {
     const v = r[key];
@@ -110,7 +113,7 @@ export class AuthService {
     return { id, name, firstName, email, phone, password, role, createdAt };
   }
 
-  // ---------- LocalStorage helpers ----------
+  /* -------------------- LocalStorage helpers -------------------- */
 
   private loadUsers(): User[] {
     const seed: User[] = [
@@ -189,5 +192,78 @@ export class AuthService {
     } catch (err) {
       console.warn('saveCurrent(): localStorage write/remove failed.', err);
     }
+  }
+
+  /* -------------------- CRUD Users (pour l'Admin) -------------------- */
+
+  /** Liste snapshot (non-signal) des users */
+  listAllUsers(): User[] {
+    return this.usersSig().slice();
+  }
+
+  /** Créer un user (role par défaut: 'user') */
+  createUser(data: Omit<User, 'id' | 'createdAt'>): User {
+    const u: User = {
+      ...data,
+      id: Date.now(),
+      createdAt: new Date(),
+    };
+    const next = [...this.usersSig(), u];
+    this.usersSig.set(next);
+    this.saveUsers(next);
+    return u;
+  }
+
+  /** Mise à jour partielle d'un user */
+  updateUser(id: number, patch: Partial<Omit<User, 'id' | 'createdAt'>>): User | undefined {
+    let updated: User | undefined;
+    const next = this.usersSig().map((u) => {
+      if (u.id !== id) return u;
+      updated = { ...u, ...patch };
+      return updated!;
+    });
+    this.usersSig.set(next);
+    this.saveUsers(next);
+    // si on édite l'utilisateur courant, garder la session à jour
+    if (this.currentUserSig()?.id === id && updated) {
+      this.currentUserSig.set(updated);
+      this.saveCurrent(updated);
+    }
+    return updated;
+  }
+
+  /** Supprimer un user */
+  deleteUser(id: number): boolean {
+    const before = this.usersSig().length;
+    const next = this.usersSig().filter((u) => u.id !== id);
+    this.usersSig.set(next);
+    this.saveUsers(next);
+    // si on supprime l'utilisateur courant -> logout
+    if (this.currentUserSig()?.id === id) this.logout();
+    return next.length < before;
+  }
+
+  /** Changer le rôle */
+  setRole(id: number, role: 'user' | 'admin'): User | undefined {
+    return this.updateUser(id, { role });
+  }
+
+  /** Réinitialisation mot de passe */
+  resetPassword(id: number, newPassword: string): User | undefined {
+    return this.updateUser(id, { password: newPassword });
+  }
+
+  /** Création "admin brut" (email/mdp générés) */
+  createRawAdmin(): User {
+    const email = `admin@gmail.com`;
+    const pwd = `admin123`;
+    return this.createUser({
+      name: 'Admin',
+      firstName: 'Raw',
+      email,
+      phone: '+33100000000',
+      password: pwd,
+      role: 'admin',
+    });
   }
 }
