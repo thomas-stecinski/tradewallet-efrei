@@ -44,7 +44,6 @@ import { AuthService } from '../../auth/services/auth.service';
           </div>
 
           @if (sel()) {
-            <!-- KPIs -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div class="card-kpi">
                 <p class="kpi-label">Investi</p>
@@ -76,7 +75,6 @@ import { AuthService } from '../../auth/services/auth.service';
               </p>
             </div>
 
-            <!-- Historique des crédits -->
             <div class="rounded-2xl border p-3 space-y-3">
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-medium">Historique des gains</h3>
@@ -94,7 +92,6 @@ import { AuthService } from '../../auth/services/auth.service';
                 }
               </ul>
 
-              <!-- Ajout d'un crédit -->
               <div class="flex flex-wrap items-end gap-3">
                 <div class="flex flex-col">
                   <label class="label-xs" for="creditAmount">Montant (€)</label>
@@ -111,7 +108,7 @@ import { AuthService } from '../../auth/services/auth.service';
                   <label class="label-xs" for="creditDate">Date</label>
                   <input id="creditDate" type="date" class="input" [(ngModel)]="creditDate" />
                 </div>
-                <button class="btn-primary" (click)="addCredit()" [disabled]="!canAdd()">
+                <button class="btn-primary" (click)="addCredit()" [disabled]="!canAdd">
                   + Ajouter
                 </button>
               </div>
@@ -147,8 +144,6 @@ import { AuthService } from '../../auth/services/auth.service';
       .kpi-badge.muted {
         @apply bg-gray-100 text-gray-500;
       }
-
-      /* Accordion */
       .accordion {
         @apply rounded-2xl border;
       }
@@ -163,7 +158,7 @@ import { AuthService } from '../../auth/services/auth.service';
       }
       details[open] .chevron {
         @apply -rotate-45;
-      } /* ✅ fix: classe Tailwind valide */
+      }
       .summary-pill {
         @apply text-xs px-2 py-0.5 rounded-full border;
       }
@@ -178,7 +173,6 @@ export class LivretAmountWidgetComponent implements OnInit {
   private txs = inject(TransactionService);
   private auth = inject(AuthService);
 
-  /** ouvre/replie au chargement (par défaut: ouvert) */
   @Input() initiallyOpen = true;
 
   sel = signal<string>('');
@@ -201,13 +195,14 @@ export class LivretAmountWidgetComponent implements OnInit {
     return Array.from(set).sort();
   });
 
-  canAdd = computed(() => {
+  // getter (re-computed on every change detection)
+  get canAdd(): boolean {
     const hasSel = !!this.sel();
     const amt = Number(this.creditAmount);
     const goodAmt = !isNaN(amt) && amt > 0;
-    const goodDate = !!this.creditDate && this.creditDate.length === 10;
+    const goodDate = !!this.creditDate && this.creditDate.length === 10; // YYYY-MM-DD
     return hasSel && goodAmt && goodDate;
-  });
+  }
 
   constructor() {
     effect(() => {
@@ -244,7 +239,6 @@ export class LivretAmountWidgetComponent implements OnInit {
   generated = (sym: string): number => this.prices.totalLivretCredits(sym);
   lastCreditDate = (sym: string) => this.prices.lastCreditDate(sym);
 
-  /** ROI = gains / investi (null si investi <= 0) */
   gainRatio = (sym: string): number | null => {
     const inv = this.invested(sym);
     if (inv <= 0) return null;
@@ -252,7 +246,7 @@ export class LivretAmountWidgetComponent implements OnInit {
   };
 
   addCredit() {
-    if (!this.canAdd()) return;
+    if (!this.canAdd) return;
     const s = this.sel();
     const amt = Number(this.creditAmount);
     const dateIso =

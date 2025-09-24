@@ -18,7 +18,6 @@ import { PortfolioService } from '../../portfolio/services/portfolio.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { CreateTransactionDto, Transaction } from '../../../core/models/transaction.model';
 import { PriceService } from '../../market/services/price.service';
-
 import { LivretAmountWidgetComponent } from '../../market/components/livret-amount-widget.component';
 
 function positive(control: AbstractControl): ValidationErrors | null {
@@ -41,7 +40,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
   ],
   template: `
     <section class="max-w-6xl mx-auto space-y-8">
-      <!-- Header -->
       <header class="flex items-center justify-between">
         <h1 class="text-3xl font-bold tracking-tight">Transactions</h1>
         @if (portfolios().length === 0) {
@@ -49,7 +47,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
         }
       </header>
 
-      <!-- Message si aucun portefeuille -->
       @if (portfolios().length === 0) {
         <div class="rounded-xl border border-amber-300 bg-amber-50 p-5">
           <p class="text-amber-800">
@@ -59,7 +56,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
         </div>
       }
 
-      <!-- Formulaire -->
       <div class="bg-white rounded-2xl shadow-md p-6 space-y-5">
         <div class="flex items-center justify-between border-b pb-3">
           <h2 class="text-lg font-semibold">
@@ -77,7 +73,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
         </div>
 
         <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
-          <!-- Ligne 1 -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label for="pf" class="label">Portefeuille</label>
@@ -95,18 +90,14 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
 
             <div>
               <label for="asset" class="label">Type d'actif</label>
-              <select
-                id="asset"
-                formControlName="assetType"
-                class="input"
-                (change)="onAssetTypeSelect($any($event.target).value)"
-              >
+              <select id="asset" formControlName="assetType" class="input">
                 <option value="stock">Action</option>
                 <option value="etf">ETF</option>
                 <option value="crypto">Crypto</option>
                 <option value="livret">Livret</option>
               </select>
             </div>
+
             <div>
               <label for="t" class="label">Type d'ordre</label>
               <select id="t" formControlName="type" class="input">
@@ -116,7 +107,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
             </div>
           </div>
 
-          <!-- Symbole -->
           <div>
             <label
               class="label"
@@ -125,7 +115,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
               Symbole
             </label>
 
-            <!-- LIVRET = menu déroulant UNIQUEMENT (responsive) -->
             @if (assetTypeSel() === 'livret') {
               <div class="flex flex-wrap items-center gap-2">
                 <select id="symbolLivret" class="input w-full md:w-72" formControlName="symbol">
@@ -139,10 +128,7 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
               @if (form.controls['symbol'].invalid && form.controls['symbol'].touched) {
                 <p class="text-xs text-red-600 mt-1">Sélectionne un livret</p>
               }
-            }
-
-            <!-- AUTRES ACTIFS = input + petit select -->
-            @else {
+            } @else {
               <div class="grid grid-cols-12 gap-2">
                 <input
                   id="symbol"
@@ -157,7 +143,7 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
                 <select
                   class="input col-span-5 md:col-span-2 shrink-0"
                   [disabled]="knownSymbols().length === 0"
-                  (change)="onPickExisting($any($event.target).value)"
+                  (change)="onPickExisting($event)"
                 >
                   <option value="">
                     {{ knownSymbols().length ? '— Choisir —' : 'Aucun symbole' }}
@@ -179,7 +165,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
             }
           </div>
 
-          <!-- Champs dynamiques -->
           @if (assetTypeSel() === 'livret') {
             <div>
               <label for="ppu" class="label">Montant (EUR)</label>
@@ -216,7 +201,6 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
             </div>
           }
 
-          <!-- Boutons -->
           <div class="flex gap-3">
             <button
               type="submit"
@@ -232,10 +216,8 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
         </form>
       </div>
 
-      <!-- Widget Livret (dépliable, replié par défaut ici) -->
       <app-livret-amount-widget [initiallyOpen]="false"></app-livret-amount-widget>
 
-      <!-- Liste -->
       <div class="bg-white rounded-2xl shadow-md overflow-hidden">
         <table class="min-w-full text-sm">
           <thead class="bg-gray-100 text-gray-700">
@@ -332,13 +314,16 @@ export class TransactionsPageComponent {
   private assetTypeCtrl = this.form.get('assetType') as FormControl<AssetType>;
   assetTypeSel = signal<AssetType>(this.assetTypeCtrl.value ?? 'stock');
 
-  /** Options proposées pour les livrets (historique utilisateur + classiques) */
+  /** user + defaults for livret list */
   livretOptions = computed(() => {
     const set = this.symbolsByType().livret;
     const existants = set ? Array.from(set) : [];
     const classiques = ['Livret A', 'LDDS', 'LEP', 'Livret Jeune'];
     return Array.from(new Set([...classiques, ...existants])).sort((a, b) => a.localeCompare(b));
   });
+
+  /** guard to auto-pick preferred type only once */
+  private didAutoPick = signal(false);
 
   constructor() {
     const u = this.auth.currentUser();
@@ -351,27 +336,26 @@ export class TransactionsPageComponent {
       .subscribe((v) => this.assetTypeSel.set((v ?? 'stock') as AssetType));
 
     this.onAssetTypeChange(this.assetTypeSel());
+
     this.assetTypeCtrl.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((t: AssetType) => this.onAssetTypeChange(t));
 
     effect(() => {
-      if (this.editId()) return;
+      if (this.editId() || this.didAutoPick()) return;
       const ctrlType = this.assetTypeCtrl;
       const curType = this.assetTypeSel();
       const knownCur = this.knownSymbols();
       const prefType = this.preferredType();
       if (knownCur.length === 0 && prefType && prefType !== curType) {
         ctrlType.setValue(prefType);
+        this.didAutoPick.set(true);
       }
     });
   }
 
-  onAssetTypeSelect(value: string) {
-    const v = (value as AssetType) || 'stock';
-    this.assetTypeCtrl.setValue(v);
-  }
-  onPickExisting(value: string) {
+  onPickExisting(event: Event) {
+    const value = (event.target as HTMLSelectElement)?.value ?? '';
     if (!value) return;
     this.form.get('symbol')!.setValue(value);
   }
@@ -444,7 +428,6 @@ export class TransactionsPageComponent {
       qty.disable({ emitEvent: false });
       fees.setValue(0, { emitEvent: false });
       fees.disable({ emitEvent: false });
-
       if (!this.form.get('symbol')?.value) this.form.get('symbol')?.markAsTouched();
     } else {
       if (qty.disabled) qty.enable({ emitEvent: false });

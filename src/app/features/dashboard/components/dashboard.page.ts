@@ -69,7 +69,6 @@ interface PriceLookup {
         </div>
       </header>
 
-      <!-- KPIs (Total filtré en premier comme demandé) -->
       <div class="grid gap-4 md:grid-cols-4">
         <div class="kpi">
           <p class="kpi-label">Total filtré (flux)</p>
@@ -91,9 +90,7 @@ interface PriceLookup {
         </div>
       </div>
 
-      <!-- Menus déroulants (cartes cliquables avec KPIs) -->
       <div class="space-y-4">
-        <!-- Actions -->
         @if (symbolsByType().stock.length > 0) {
           <details class="accordion" [attr.open]="true">
             <summary class="accordion-title">Actions</summary>
@@ -135,7 +132,6 @@ interface PriceLookup {
           </details>
         }
 
-        <!-- ETF -->
         @if (symbolsByType().etf.length > 0) {
           <details class="accordion">
             <summary class="accordion-title">ETF</summary>
@@ -175,7 +171,6 @@ interface PriceLookup {
           </details>
         }
 
-        <!-- Crypto -->
         @if (symbolsByType().crypto.length > 0) {
           <details class="accordion">
             <summary class="accordion-title">Crypto</summary>
@@ -217,7 +212,6 @@ interface PriceLookup {
           </details>
         }
 
-        <!-- Livrets -->
         @if (livrets().length > 0) {
           <details class="accordion">
             <summary class="accordion-title">Livrets</summary>
@@ -236,18 +230,18 @@ interface PriceLookup {
                     }}</span>
                   </div>
                   <div class="text-sm grid grid-cols-2 gap-y-1">
-                    <span class="muted">Valeur</span
-                    ><span class="text-right">{{
+                    <span class="muted">Valeur</span>
+                    <span class="text-right">{{
                       investedLivret(s) + gainsLivret(s) | currency: 'EUR'
                     }}</span>
-                    <span class="muted">Investi</span
-                    ><span class="text-right">{{ investedLivret(s) | currency: 'EUR' }}</span>
-                    <span class="muted">Gain %</span
-                    ><span class="text-right">{{
+                    <span class="muted">Investi</span>
+                    <span class="text-right">{{ investedLivret(s) | currency: 'EUR' }}</span>
+                    <span class="muted">Gain %</span>
+                    <span class="text-right">{{
                       roiLivret(s) === null ? '—' : (roiLivret(s)! | number: '1.2-2') + '%'
                     }}</span>
-                    <span class="muted">Gain (€)</span
-                    ><span class="text-right">{{ gainsLivret(s) | currency: 'EUR' }}</span>
+                    <span class="muted">Gain (€)</span>
+                    <span class="text-right">{{ gainsLivret(s) | currency: 'EUR' }}</span>
                   </div>
                 </button>
               }
@@ -256,7 +250,6 @@ interface PriceLookup {
         }
       </div>
 
-      <!-- Courbe -->
       <div class="bg-white rounded-2xl shadow p-4">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-base font-semibold">Courbe (EUR)</h2>
@@ -286,14 +279,12 @@ interface PriceLookup {
       .kpi-value {
         @apply text-2xl font-semibold;
       }
-
       .accordion {
         @apply rounded-2xl border bg-white p-3;
       }
       .accordion-title {
         @apply cursor-pointer text-sm font-semibold;
       }
-
       .card-kpi {
         @apply rounded-xl border p-4 text-left bg-white shadow-sm;
       }
@@ -417,6 +408,7 @@ export class DashboardPageComponent {
     }
     return q;
   }
+
   investedAsset(t: NonLivret, sym: string): number {
     const u = this.auth.currentUser();
     const pf = this.portfolioId();
@@ -436,30 +428,59 @@ export class DashboardPageComponent {
     }
     return sum;
   }
-  private lastPrice(sym: string): number {
+
+  // live price or null
+  private lastPrice(sym: string): number | null {
     const p = this.prices as unknown as PriceLookup;
-    const raw = p.lastPrice?.(sym) ?? p.priceOf?.(sym) ?? p.getPrice?.(sym) ?? 0;
-    let n = 0;
-    if (typeof raw === 'number') n = raw;
-    else if (typeof raw === 'string') n = Number(raw);
-    else n = 0;
-    return Number.isFinite(n) ? n : 0;
+    const raw = p.lastPrice?.(sym) ?? p.priceOf?.(sym) ?? p.getPrice?.(sym);
+    if (raw === null || raw === undefined) return null;
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
+
+  // use latest BUY price if no live price
+  private fallbackPrice(t: NonLivret, sym: string): number | null {
+    const u = this.auth.currentUser();
+    const pf = this.portfolioId();
+    if (!u) return null;
+    const up = this.normalize(sym);
+
+    const tx = [...this.txs.transactions()]
+      .filter(
+        (x) =>
+          x.userId === u.id &&
+          x.assetType === t &&
+          this.normalize(x.symbol) === up &&
+          (pf === 'all' || x.portfolioId === Number(pf)) &&
+          x.type === 'buy',
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+    const price = Number(tx?.pricePerUnit ?? NaN);
+    return Number.isFinite(price) && price > 0 ? price : null;
+  }
+
   valueAsset(t: NonLivret, sym: string): number {
-    const price = this.lastPrice(sym);
     const qty = this.qtyAsset(t, sym);
-    return (price || 0) * qty;
+    const live = this.lastPrice(sym);
+    const price = live ?? this.fallbackPrice(t, sym) ?? 0;
+    return price * qty;
   }
+
   gainAsset(t: NonLivret, sym: string): number {
     const inv = this.investedAsset(t, sym);
     const val = this.valueAsset(t, sym);
     return val - inv;
   }
+
+  // show % even when using fallback (hide only if invested <= 0)
   pctAsset(t: NonLivret, sym: string): number | null {
     const inv = this.investedAsset(t, sym);
     if (inv <= 0) return null;
-    return (this.gainAsset(t, sym) / inv) * 100;
+    const val = this.valueAsset(t, sym);
+    return ((val - inv) / inv) * 100;
   }
+
   isSelected(t: AtKey, s: string) {
     const up = this.normalize(s);
     return this._selected().some((p) => p.t === t && p.s === up);
@@ -523,19 +544,13 @@ export class DashboardPageComponent {
   lineData: Signal<ChartConfiguration<'line'>['data']> = computed(() => {
     const labels = this.series().map((p) => p.label);
     const picks = this._selected();
-
     const baseData = this.series().map((p) => Number((p as { total?: number }).total ?? 0));
-
     let label = 'Total';
     if (picks.length >= 1) {
       const first = picks[0];
       label = `${this.typeLabel(first.t)} • ${first.s}`;
     }
-
-    return {
-      labels,
-      datasets: [{ label, data: baseData, tension: 0.3, fill: false }],
-    };
+    return { labels, datasets: [{ label, data: baseData, tension: 0.3, fill: false }] };
   });
 
   private normalize(s: string) {
