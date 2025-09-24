@@ -1,4 +1,3 @@
-// src/app/features/admin/components/admin-layout.component.ts
 import { Component, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
@@ -9,10 +8,11 @@ import { AuthService } from '../../auth/services/auth.service';
   selector: 'app-admin-layout',
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <!-- Sous-navbar Admin (affichée sous la navbar principale de l'app) -->
+    <!-- Secondary navbar for admin section (below the main app navbar) -->
     <nav class="w-full border-b bg-white">
       <div class="mx-auto max-w-7xl px-4">
         <ul class="flex gap-4 h-12 items-center text-sm">
+          <!-- Link to admin overview -->
           <li>
             <a
               routerLink="/admin/overview"
@@ -21,6 +21,7 @@ import { AuthService } from '../../auth/services/auth.service';
               >Vue d’ensemble</a
             >
           </li>
+          <!-- Link to user management -->
           <li>
             <a
               routerLink="/admin/users"
@@ -29,6 +30,7 @@ import { AuthService } from '../../auth/services/auth.service';
               >Comptes</a
             >
           </li>
+          <!-- Link to transaction management -->
           <li>
             <a
               routerLink="/admin/transactions"
@@ -41,7 +43,7 @@ import { AuthService } from '../../auth/services/auth.service';
       </div>
     </nav>
 
-    <!-- Contenu des pages admin -->
+    <!-- Routed admin content will be displayed here -->
     <main class="py-6">
       <router-outlet />
     </main>
@@ -49,6 +51,8 @@ import { AuthService } from '../../auth/services/auth.service';
 })
 export class AdminLayoutComponent {
   private auth = inject(AuthService);
+
+  // Reactive signals: expose current user's name and role
   userName = computed(() => this.auth.currentUser()?.name ?? '—');
   role = computed(() => this.auth.currentUser()?.role ?? 'user');
 }

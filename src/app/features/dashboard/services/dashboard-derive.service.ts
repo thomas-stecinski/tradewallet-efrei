@@ -64,11 +64,11 @@ function upcase(s: string) {
 }
 
 export interface StatSlice {
-  invested: number; // coût de revient des positions ouvertes (ou livret: dépôts YTD)
-  value: number; // valeur actuelle (prix courant * qty, ou livret: montant courant)
-  pnlUnrealized: number; // “si je revend maintenant ?” (actions/ETF/crypto) ; livret: (value - investiYTD)
-  pnlRealized: number; // cumulé des ventes (livret: 0)
-  pnlPct: number; // pnlUnrealized / invested (%)
+  invested: number;
+  value: number;
+  pnlUnrealized: number;
+  pnlRealized: number;
+  pnlPct: number;
 }
 export interface StatsByType {
   stock: StatSlice;
@@ -110,7 +110,6 @@ export class DashboardDeriveService {
     return u ? this.pfSrv.listByUser(u.id) : [];
   });
 
-  // ---- Série (flux) inchangée ----
   readonly series = computed(() => {
     const { range, portfolioId, assetType, symbol } = this.filters();
     const sym = upcase(symbol);
@@ -145,7 +144,6 @@ export class DashboardDeriveService {
   });
   readonly total = computed(() => this.series().reduce((s, p) => s + p.total, 0));
 
-  // ---- Stats P&L “si je revend maintenant ?” + livret YTD ----
   private filteredTxAllHistory = computed<Transaction[]>(() => {
     const { portfolioId, assetType, symbol } = this.filters();
     const sym = upcase(symbol);
@@ -162,9 +160,7 @@ export class DashboardDeriveService {
   }
 
   private buildSlice(txs: Transaction[], type: AssetType): StatSlice {
-    // Livret: calcul à part
     if (type === 'livret') {
-      // regrouper par livret (symbole peut contenir des espaces)
       const bySym = new Map<string, Transaction[]>();
       for (const t of txs) {
         const s = upcase(t.symbol);
@@ -177,13 +173,11 @@ export class DashboardDeriveService {
 
       for (const [sym, list] of bySym) {
         const y0 = this.jan1();
-        // Dépôts YTD (type=buy)
         const depYTD = list
           .filter((t) => t.type === 'buy' && new Date(t.createdAt) >= y0)
           .reduce((acc, t) => acc + (Number(t.pricePerUnit) || 0), 0);
         investedYTD += depYTD;
 
-        // Montant courant (saisi) sinon fallback = somme dépôts cumulés (depuis le début)
         const state = this.prices.getLivretState(sym);
         const current =
           typeof state.currentAmount === 'number'
@@ -201,7 +195,6 @@ export class DashboardDeriveService {
       return { invested: investedYTD, value, pnlUnrealized, pnlRealized: 0, pnlPct };
     }
 
-    // Actions/ETF/Crypto: modèle positions (moyenne pondérée + P&L)
     interface Pos {
       qty: number;
       cost: number;

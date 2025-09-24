@@ -1,4 +1,3 @@
-// src/app/features/admin/components/admin-users-page.component.ts
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import {
@@ -26,6 +25,7 @@ type SortDir = 'asc' | 'desc';
           <p class="text-sm text-gray-600">Visualiser, créer, modifier, supprimer des comptes.</p>
         </div>
 
+        <!-- Simple search + quick “raw admin” action -->
         <div class="flex items-center gap-2">
           <input
             class="border rounded-lg px-3 py-2"
@@ -42,7 +42,7 @@ type SortDir = 'asc' | 'desc';
         </div>
       </header>
 
-      <!-- Formulaire de création / édition -->
+      <!-- Create/Edit form (controlled by editId) -->
       <div class="bg-white rounded-2xl shadow p-5 space-y-4">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">
@@ -119,7 +119,7 @@ type SortDir = 'asc' | 'desc';
         </form>
       </div>
 
-      <!-- Tableau -->
+      <!-- Sortable, filterable table -->
       <div class="overflow-auto rounded-2xl border bg-white">
         <table class="min-w-full text-sm">
           <thead class="bg-gray-50">
@@ -156,6 +156,7 @@ type SortDir = 'asc' | 'desc';
                 <td class="px-3 py-2 uppercase">
                   <span class="inline-flex items-center gap-2">
                     {{ u.role }}
+                    <!-- Quick role toggle -->
                     <button class="text-xs px-2 py-1 rounded border" (click)="toggleRole(u)">
                       ⇄
                     </button>
@@ -181,6 +182,7 @@ type SortDir = 'asc' | 'desc';
         </table>
       </div>
 
+      <!-- Temporary banner showing generated admin credentials -->
       @if (justCreatedAdmin()) {
         <div class="rounded-xl border border-emerald-300 bg-emerald-50 p-4">
           <p class="text-emerald-800">
@@ -197,17 +199,19 @@ export class AdminUsersPageComponent {
   private auth = inject(AuthService);
   private fb = inject(FormBuilder);
 
+  // UI state
   saving = signal(false);
   editId = signal<number | null>(null);
   q = '';
 
+  // ephemeral banner for createRawAdmin()
   justCreatedAdmin = signal<User | null>(null);
 
-  // tri
+  // sorting state
   sortKey: SortKey = 'createdAt';
   sortDir: SortDir = 'desc';
 
-  // form
+  // reactive form (minimal validation for demo/localStorage use)
   form: FormGroup = this.fb.group({
     name: ['', [Validators.required]],
     firstName: [''],
@@ -217,9 +221,10 @@ export class AdminUsersPageComponent {
     role: ['user', [Validators.required]],
   });
 
-  // flux users à jour via signal du service
+  // source users signal from AuthService (localStorage-backed)
   users = this.auth.users;
 
+  // filtered + sorted view for the table
   filteredSorted = computed(() => {
     const term = (this.q || '').toLowerCase();
     const list = this.users().filter((u) => {
@@ -246,6 +251,7 @@ export class AdminUsersPageComponent {
     });
   });
 
+  // map field used for sort comparisons
   private valueFor(u: User, k: SortKey): string | Date {
     switch (k) {
       case 'name':
@@ -261,6 +267,7 @@ export class AdminUsersPageComponent {
     }
   }
 
+  // toggle sort or switch column
   sortBy(k: SortKey) {
     if (this.sortKey === k) {
       this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
@@ -270,6 +277,7 @@ export class AdminUsersPageComponent {
     }
   }
 
+  // enter edit mode and preload form
   startEdit(u: User) {
     this.editId.set(u.id);
     this.form.reset({
@@ -283,6 +291,7 @@ export class AdminUsersPageComponent {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // leave edit mode and clear form
   resetForm() {
     this.editId.set(null);
     this.form.reset({
@@ -295,6 +304,7 @@ export class AdminUsersPageComponent {
     });
   }
 
+  // create or update depending on editId
   async onSubmit() {
     if (this.form.invalid) return;
     this.saving.set(true);
@@ -325,6 +335,7 @@ export class AdminUsersPageComponent {
     }
   }
 
+  // destructive action with confirm
   remove(u: User) {
     const ok = confirm(`Supprimer ${u.name} (${u.email}) ?`);
     if (!ok) return;
@@ -332,11 +343,13 @@ export class AdminUsersPageComponent {
     if (this.editId() === u.id) this.resetForm();
   }
 
+  // quick role toggle
   toggleRole(u: User) {
     const next: 'user' | 'admin' = u.role === 'admin' ? 'user' : 'admin';
     this.auth.setRole(u.id, next);
   }
 
+  // prompt-based password reset (localStorage mock)
   resetPwd(u: User) {
     const np = prompt(`Nouveau mot de passe pour ${u.email}:`, u.password);
     if (!np) return;
@@ -350,6 +363,7 @@ export class AdminUsersPageComponent {
     }
   }
 
+  // generate a basic admin account and show ephemeral banner
   createRawAdmin() {
     const created = this.auth.createRawAdmin();
     this.justCreatedAdmin.set(created);

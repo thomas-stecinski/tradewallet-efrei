@@ -13,14 +13,15 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
 interface RegisterForm {
-  name: FormControl<string>; // Nom
-  firstName: FormControl<string>; // Prénom
+  name: FormControl<string>;
+  firstName: FormControl<string>;
   email: FormControl<string>;
   password: FormControl<string>;
   confirmPassword: FormControl<string>;
   phone: FormControl<string>;
 }
 
+// Cross-field validator: password === confirmPassword
 function passwordMatchValidator(): ValidatorFn {
   return (group: AbstractControl): { passwordMismatch: true } | null => {
     const password = group.get('password')?.value as string | undefined;
@@ -30,11 +31,11 @@ function passwordMatchValidator(): ValidatorFn {
   };
 }
 
-/** Validator custom pour numéros FR (avec ou sans espaces) */
+/** FR phone validator (with or without spaces) */
 function frenchPhoneValidator(): ValidatorFn {
   return (control: AbstractControl) => {
     const raw = (control.value ?? '') as string;
-    const v = raw.replace(/\s+/g, ''); // supprime les espaces
+    const v = raw.replace(/\s+/g, '');
     return /^0\d{9}$|^\+33\d{9}$/.test(v) ? null : { invalidPhone: true };
   };
 }
@@ -190,6 +191,7 @@ export class RegisterComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
+  // Strongly-typed reactive form with validators
   form: FormGroup<RegisterForm> = this.fb.group(
     {
       name: this.fb.control('', {
@@ -220,20 +222,23 @@ export class RegisterComponent {
     { validators: [passwordMatchValidator()] },
   );
 
+  // UI state
   loading = signal(false);
   error = signal('');
 
+  // Dynamic maxlength depending on +33 format
   get maxLen(): number {
     const v = (this.form.controls.phone.value ?? '').toString().trim();
     return v.startsWith('+33') ? 17 : 14;
   }
 
+  // Helper: field is invalid and touched/dirty
   invalid<K extends keyof RegisterForm>(key: K): boolean {
     const c = this.form.get(key);
     return !!(c && c.invalid && (c.dirty || c.touched));
   }
 
-  // --- gestion téléphone ---
+  // Keydown guard: allow digits, control keys, and a single leading '+'
   onPhoneKeyDown(evt: KeyboardEvent) {
     const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
     if (allowed.includes(evt.key)) return;
@@ -257,6 +262,7 @@ export class RegisterComponent {
     if (selLen === 0 && digitsCount >= maxDigits) evt.preventDefault();
   }
 
+  // Input formatter: live-format FR phone (+33 or local)
   onPhoneInput(evt: Event) {
     const input = evt.target as HTMLInputElement;
     const c = this.form.controls.phone;
@@ -276,12 +282,14 @@ export class RegisterComponent {
     }
 
     c.setValue(formatted, { emitEvent: false });
-    c.updateValueAndValidity({ emitEvent: false }); // ✅ recalcule la validité
+    c.updateValueAndValidity({ emitEvent: false });
 
+    // Keep caret near original digit position
     const newCaret = this.indexFromDigits(formatted, caretDigitsBefore);
     queueMicrotask(() => input.setSelectionRange(newCaret, newCaret));
   }
 
+  // Paste handler: normalize and format pasted text
   onPhonePaste(evt: ClipboardEvent) {
     evt.preventDefault();
     const input = evt.target as HTMLInputElement;
@@ -295,7 +303,7 @@ export class RegisterComponent {
         : this.formatFr(digits.slice(0, 10));
 
     this.form.controls.phone.setValue(formatted, { emitEvent: false });
-    this.form.controls.phone.updateValueAndValidity({ emitEvent: false }); // ✅
+    this.form.controls.phone.updateValueAndValidity({ emitEvent: false });
 
     queueMicrotask(() => {
       const end = formatted.length;
@@ -303,6 +311,7 @@ export class RegisterComponent {
     });
   }
 
+  // Format "0X XX XX XX XX"
   private formatFr(local: string): string {
     const p: string[] = [];
     if (local.length > 0) p.push(local.slice(0, 2));
@@ -312,6 +321,7 @@ export class RegisterComponent {
     if (local.length > 8) p.push(local.slice(8, 10));
     return p.join(' ').trim();
   }
+  // Format "+33 X XX XX XX XX"
   private formatIntlFr(local: string): string {
     let out = '+33';
     if (local.length > 0) out += ' ' + local.slice(0, 1);
@@ -322,6 +332,7 @@ export class RegisterComponent {
     return out;
   }
 
+  // Caret helpers for digit-aware positioning
   private countDigitsBefore(text: string, index: number): number {
     let n = 0;
     for (let i = 0; i < Math.min(index, text.length); i++) if (/\d/.test(text[i])) n++;
@@ -339,6 +350,7 @@ export class RegisterComponent {
     return text.length;
   }
 
+  // Convert to E.164 if number is FR-like
   private toE164IfFR(raw: string): string {
     if (!raw) return '';
     let v = raw.trim();
@@ -351,6 +363,7 @@ export class RegisterComponent {
     return v;
   }
 
+  // Submit flow: call AuthService, navigate, handle errors
   async onSubmit() {
     if (this.form.invalid) return;
 

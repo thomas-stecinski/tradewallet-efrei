@@ -1,4 +1,3 @@
-// src/app/features/admin/components/admin-transactions-page.component.ts
 import { Component, computed, inject } from '@angular/core';
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,6 +19,7 @@ type SortDir = 'asc' | 'desc';
           <p class="text-sm text-gray-600">Toutes les transactions de l’application</p>
         </div>
 
+        <!-- Simple client-side search & filters -->
         <div class="flex flex-wrap items-center gap-2">
           <input
             class="border rounded-lg px-3 py-2"
@@ -41,7 +41,7 @@ type SortDir = 'asc' | 'desc';
         </div>
       </header>
 
-      <!-- KPIs simples -->
+      <!-- Lightweight KPIs computed from the filtered list -->
       <div class="grid gap-4 md:grid-cols-3">
         <div class="bg-white rounded-2xl shadow p-4">
           <p class="text-xs text-gray-500">Nombre</p>
@@ -59,7 +59,7 @@ type SortDir = 'asc' | 'desc';
         </div>
       </div>
 
-      <!-- Tableau -->
+      <!-- Sortable table (click headers to toggle asc/desc) -->
       <div class="overflow-auto rounded-2xl border bg-white">
         <table class="min-w-full text-sm">
           <thead class="bg-gray-50 text-left">
@@ -118,13 +118,15 @@ type SortDir = 'asc' | 'desc';
 export class AdminTransactionsPageComponent {
   private txSrv = inject(TransactionService);
 
+  // bound to inputs/selects in the header
   q = '';
   assetFilter = '';
   typeFilter = '';
 
-  // Source: toutes les transactions (non filtrées par user)
+  // source signal with all transactions
   all = this.txSrv.transactions;
 
+  // filter pipeline (case-insensitive); runs reactively on inputs
   filtered = computed<Transaction[]>(() => {
     const term = (this.q || '').toLowerCase();
     const asset = (this.assetFilter || '').toLowerCase();
@@ -146,10 +148,11 @@ export class AdminTransactionsPageComponent {
     });
   });
 
-  // tri
+  // sorting state controlled by header clicks
   sortKey: SortKey = 'createdAt';
   sortDir: SortDir = 'desc';
 
+  // sorted view derived from the filtered list
   sorted = computed<Transaction[]>(() => {
     const key = this.sortKey;
     const dir = this.sortDir;
@@ -168,6 +171,7 @@ export class AdminTransactionsPageComponent {
       });
   });
 
+  // toggle sort or switch key
   sortBy(k: SortKey) {
     if (this.sortKey === k) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
     else {
@@ -176,14 +180,16 @@ export class AdminTransactionsPageComponent {
     }
   }
 
+  // aggregate KPIs (reactive)
   sumTotal = computed(() => this.filtered().reduce((s, t) => s + (t.total ?? 0), 0));
 
   latestDate = computed<Date | null>(() => {
+    // find max timestamp among filtered items
     const mx = this.filtered().reduce<number>((m, t) => Math.max(m, +new Date(t.createdAt)), 0);
     return mx ? new Date(mx) : null;
-    // (ici on n'utilise latestDate que pour affichage, ok si Date|null)
   });
 
+  // normalize the value used for sorting per column
   private valueFor(t: Transaction, k: SortKey): string | number | Date {
     switch (k) {
       case 'createdAt':

@@ -1,4 +1,3 @@
-// src/app/features/dashboard/components/dashboard.page.ts
 import { Component, Signal, computed, inject, signal } from '@angular/core';
 import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -16,7 +15,6 @@ interface Picked {
   s: string;
 }
 
-// utilitaire pour éviter `any` tout en restant souple sur le service prix
 interface PriceLookup {
   lastPrice?: (s: string) => number | string | null | undefined;
   priceOf?: (s: string) => number | string | null | undefined;
@@ -315,26 +313,21 @@ interface PriceLookup {
   ],
 })
 export class DashboardPageComponent {
-  // Services
   d = inject(DashboardDeriveService);
   prices = inject(PriceService);
   txs = inject(TransactionService);
   auth = inject(AuthService);
 
-  // Données globales
   series = this.d.series;
   total = this.d.total;
   overall = this.d.statsOverall;
 
-  // Filtres
   range = computed(() => this.d.filters().range);
   portfolioId = computed(() => this.d.filters().portfolioId);
 
-  // Sélections multiples (affichées et utilisées pour sync. des filtres via le 1er pick)
   private _selected = signal<Picked[]>([]);
   selected = computed(() => this._selected());
 
-  // Libellés
   typeLabel(t: AtKey): string {
     switch (t) {
       case 'stock':
@@ -348,7 +341,6 @@ export class DashboardPageComponent {
     }
   }
 
-  // Symboles par type (hors livret)
   symbolsByType = computed<Record<NonLivret, string[]>>(() => {
     const u = this.auth.currentUser();
     const pf = this.portfolioId();
@@ -372,7 +364,6 @@ export class DashboardPageComponent {
     };
   });
 
-  // Livrets
   livrets = computed<string[]>(() => {
     const u = this.auth.currentUser();
     const pf = this.portfolioId();
@@ -387,7 +378,6 @@ export class DashboardPageComponent {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   });
 
-  // Livrets: Investi / Gains / ROI
   investedLivret = (sym: string): number => {
     const u = this.auth.currentUser();
     const pf = this.portfolioId();
@@ -411,7 +401,6 @@ export class DashboardPageComponent {
     return (this.gainsLivret(sym) / inv) * 100;
   };
 
-  // Actions/ETF/Crypto: quantité / investi / valeur / gains
   private qtyAsset(t: NonLivret, sym: string): number {
     const u = this.auth.currentUser();
     const pf = this.portfolioId();
@@ -448,7 +437,6 @@ export class DashboardPageComponent {
     return sum;
   }
   private lastPrice(sym: string): number {
-    // compat avec plusieurs signatures possibles du service de prix, sans `any`
     const p = this.prices as unknown as PriceLookup;
     const raw = p.lastPrice?.(sym) ?? p.priceOf?.(sym) ?? p.getPrice?.(sym) ?? 0;
     let n = 0;
@@ -472,8 +460,6 @@ export class DashboardPageComponent {
     if (inv <= 0) return null;
     return (this.gainAsset(t, sym) / inv) * 100;
   }
-
-  // Sélection / filtres (multi-sélection visuelle, le 1er élément pilote les filtres/series)
   isSelected(t: AtKey, s: string) {
     const up = this.normalize(s);
     return this._selected().some((p) => p.t === t && p.s === up);
@@ -505,7 +491,6 @@ export class DashboardPageComponent {
     this.d.filters.update((f) => ({ ...f, assetType: first.t, symbol: first.s }));
   }
 
-  // Handlers filtres
   setRange(r: Range) {
     this.d.filters.update((f) => ({ ...f, range: r }));
   }
@@ -513,7 +498,6 @@ export class DashboardPageComponent {
     const val = p === 'all' || p === '' ? 'all' : Number(p);
     this.d.filters.update((f) => ({ ...f, portfolioId: val }));
 
-    // purge les sélections non disponibles dans ce portefeuille
     const syms = this.symbolsByType();
     const livs = this.livrets();
     const keep = this._selected().filter((pick) => {
@@ -529,7 +513,6 @@ export class DashboardPageComponent {
     this.clearAll();
   }
 
-  // Courbe
   lineOptions: ChartConfiguration<'line'>['options'] = {
     responsive: true,
     maintainAspectRatio: false,
@@ -541,7 +524,6 @@ export class DashboardPageComponent {
     const labels = this.series().map((p) => p.label);
     const picks = this._selected();
 
-    // La série renvoyée par DashboardDeriveService dépend des filtres (pilotés par applyFilterFromSelection)
     const baseData = this.series().map((p) => Number((p as { total?: number }).total ?? 0));
 
     let label = 'Total';
@@ -552,14 +534,10 @@ export class DashboardPageComponent {
 
     return {
       labels,
-      datasets: [
-        { label, data: baseData, tension: 0.3, fill: false },
-        // si tu ajoutes une série "gains" côté service, plug-la ici en second dataset
-      ],
+      datasets: [{ label, data: baseData, tension: 0.3, fill: false }],
     };
   });
 
-  // Utils
   private normalize(s: string) {
     return (s || '').trim().toUpperCase();
   }

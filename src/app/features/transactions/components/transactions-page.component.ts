@@ -355,7 +355,6 @@ export class TransactionsPageComponent {
       .pipe(takeUntilDestroyed())
       .subscribe((t: AssetType) => this.onAssetTypeChange(t));
 
-    // auto-switch vers le type le plus fréquent si aucun symbole saisi
     effect(() => {
       if (this.editId()) return;
       const ctrlType = this.assetTypeCtrl;
@@ -377,7 +376,6 @@ export class TransactionsPageComponent {
     this.form.get('symbol')!.setValue(value);
   }
 
-  // sets de symboles PAR UTILISATEUR
   symbolsByType = computed(() => {
     const u = this.auth.currentUser();
     const map: Record<AssetType, Set<string>> = {
@@ -419,7 +417,7 @@ export class TransactionsPageComponent {
   ensureUpper() {
     const c = this.form.get('symbol')!;
     const raw = (c.value || '') as string;
-    if (this.assetTypeSel() === 'livret') return; // livret : pas de forçage de casse
+    if (this.assetTypeSel() === 'livret') return;
     const up = this.normalize(raw);
     if (up !== raw) c.setValue(up, { emitEvent: false });
   }

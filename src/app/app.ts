@@ -24,7 +24,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 export class App {
   private router = inject(Router);
   private url = signal(this.router.url);
-  // true si on est sur /auth ou /auth/...
   isAuthRoute = computed(() => this.url().startsWith('/auth'));
 
   constructor() {

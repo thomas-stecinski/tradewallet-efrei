@@ -190,7 +190,6 @@ export class LivretAmountWidgetComponent implements OnInit {
     this.expanded.set(this.initiallyOpen);
   }
 
-  // Liste des livrets pour l'utilisateur connecté
   livrets = computed(() => {
     const u = this.auth.currentUser();
     if (!u) return [] as string[];
@@ -202,7 +201,6 @@ export class LivretAmountWidgetComponent implements OnInit {
     return Array.from(set).sort();
   });
 
-  // Activer le bouton "+ Ajouter" si: livret sélectionné, montant > 0, date ok
   canAdd = computed(() => {
     const hasSel = !!this.sel();
     const amt = Number(this.creditAmount);
@@ -212,7 +210,6 @@ export class LivretAmountWidgetComponent implements OnInit {
   });
 
   constructor() {
-    // auto-select premier livret dispo
     effect(() => {
       if (!this.sel() && this.livrets().length) {
         this.sel.set(this.livrets()[0]);
@@ -228,7 +225,6 @@ export class LivretAmountWidgetComponent implements OnInit {
     this.sel.set(sym);
   }
 
-  // Investi = somme buy - somme sell
   invested = (sym: string): number => {
     const up = (sym || '').toUpperCase();
     const u = this.auth.currentUser();
@@ -252,7 +248,7 @@ export class LivretAmountWidgetComponent implements OnInit {
   gainRatio = (sym: string): number | null => {
     const inv = this.invested(sym);
     if (inv <= 0) return null;
-    return this.generated(sym) / inv; // affichage en % via | percent
+    return this.generated(sym) / inv;
   };
 
   addCredit() {

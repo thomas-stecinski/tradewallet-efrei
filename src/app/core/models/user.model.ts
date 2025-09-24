@@ -1,7 +1,7 @@
 export interface User {
   id: number;
-  name: string; // Nom
-  firstName: string; // Prénom
+  name: string;
+  firstName: string;
   email: string;
   phone: string;
   password: string;
@@ -15,8 +15,8 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
-  name: string; // Nom
-  firstName: string; // Prénom
+  name: string;
+  firstName: string;
   email: string;
   phone: string;
   password: string;

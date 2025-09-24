@@ -193,7 +193,6 @@ export class NavbarComponent {
   user = this.auth.currentUser;
   isAdmin = this.auth.isAdmin;
 
-  // État du menu mobile
   menuOpen = signal(false);
   toggleMenu() {
     this.menuOpen.update((v) => !v);

@@ -1,4 +1,3 @@
-// src/app/features/auth/services/auth.service.ts
 import { Injectable, signal, computed } from '@angular/core';
 import { User, LoginRequest, RegisterRequest } from '../../../../app/core/models/user.model';
 
@@ -19,8 +18,6 @@ export class AuthService {
   private delay(ms = 350) {
     return new Promise((res) => setTimeout(res, ms));
   }
-
-  /* -------------------- Auth (login/register/logout) -------------------- */
 
   async login(payload: LoginRequest): Promise<User> {
     await this.delay();
@@ -49,7 +46,7 @@ export class AuthService {
       firstName: payload.firstName?.trim() || '',
       email: payload.email.trim(),
       phone: payload.phone,
-      password: payload.password, // (mock)
+      password: payload.password,
       role: 'user',
       createdAt: new Date(),
     };
@@ -94,7 +91,6 @@ export class AuthService {
     return new Date();
   }
 
-  /** Convertit un objet inconnu (depuis LS) en User valide ou null */
   private normalizeUser(raw: unknown): User | null {
     if (typeof raw !== 'object' || raw === null) return null;
     const r = raw as Record<string, unknown>;
@@ -112,8 +108,6 @@ export class AuthService {
 
     return { id, name, firstName, email, phone, password, role, createdAt };
   }
-
-  /* -------------------- LocalStorage helpers -------------------- */
 
   private loadUsers(): User[] {
     const seed: User[] = [
@@ -194,9 +188,6 @@ export class AuthService {
     }
   }
 
-  /* -------------------- CRUD Users (pour l'Admin) -------------------- */
-
-  /** Liste snapshot (non-signal) des users */
   listAllUsers(): User[] {
     return this.usersSig().slice();
   }
@@ -224,7 +215,6 @@ export class AuthService {
     });
     this.usersSig.set(next);
     this.saveUsers(next);
-    // si on édite l'utilisateur courant, garder la session à jour
     if (this.currentUserSig()?.id === id && updated) {
       this.currentUserSig.set(updated);
       this.saveCurrent(updated);
@@ -232,28 +222,23 @@ export class AuthService {
     return updated;
   }
 
-  /** Supprimer un user */
   deleteUser(id: number): boolean {
     const before = this.usersSig().length;
     const next = this.usersSig().filter((u) => u.id !== id);
     this.usersSig.set(next);
     this.saveUsers(next);
-    // si on supprime l'utilisateur courant -> logout
     if (this.currentUserSig()?.id === id) this.logout();
     return next.length < before;
   }
 
-  /** Changer le rôle */
   setRole(id: number, role: 'user' | 'admin'): User | undefined {
     return this.updateUser(id, { role });
   }
 
-  /** Réinitialisation mot de passe */
   resetPassword(id: number, newPassword: string): User | undefined {
     return this.updateUser(id, { password: newPassword });
   }
 
-  /** Création "admin brut" (email/mdp générés) */
   createRawAdmin(): User {
     const email = `admin@gmail.com`;
     const pwd = `admin123`;

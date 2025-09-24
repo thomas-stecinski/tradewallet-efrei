@@ -4,7 +4,7 @@ import type { Transaction } from '../../../core/models/transaction.model';
 
 const LS_PRICES = 'tw_prices';
 const LS_LIVRETS = 'tw_livrets_state';
-const LS_CREDITS = 'tw_livrets_credits'; // crédits d’intérêts/gains
+const LS_CREDITS = 'tw_livrets_credits';
 
 export interface LivretState {
   currentAmount?: number;
@@ -64,7 +64,6 @@ function reviveCredits(map: Record<string, Credit[]> | null): Record<string, Cre
 
 @Injectable({ providedIn: 'root' })
 export class PriceService {
-  // ---------- Overrides prix (actions/etf/crypto)
   private loadOverrides(): Record<string, number> {
     const raw = safeStorage.getItem(LS_PRICES);
     if (!raw) return {};
@@ -103,7 +102,6 @@ export class PriceService {
     return last || 0;
   }
 
-  // ---------- État livrets
   private loadLivrets(): Record<string, LivretState> {
     const raw = safeStorage.getItem(LS_LIVRETS);
     if (!raw) return {};
@@ -156,7 +154,6 @@ export class PriceService {
     this.saveLivrets(map);
   }
 
-  // ---------- Crédits (gains / intérêts)
   private loadCredits(): Record<string, Credit[]> {
     const raw = safeStorage.getItem(LS_CREDITS);
     if (!raw) return {};

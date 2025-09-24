@@ -1,4 +1,3 @@
-// src/app/features/admin/admin.routes.ts
 import { Routes } from '@angular/router';
 import { AdminLayoutComponent } from './components/admin-layout.component';
 import { AdminOverviewPageComponent } from './components/admin-overview-page.component';

@@ -1,4 +1,3 @@
-// src/app/features/auth/components/login/login.component.ts
 import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
@@ -14,8 +13,9 @@ import { AuthService } from '../../services/auth.service';
       <div class="w-full max-w-md bg-white p-8 rounded-2xl shadow">
         <h1 class="text-2xl font-bold text-gray-900 text-center">Connexion</h1>
 
+        <!-- Reactive form bound to formGroup -->
         <form [formGroup]="form" (ngSubmit)="onSubmit()" class="mt-6 space-y-4" novalidate>
-          <!-- Email -->
+          <!-- Email input with validation errors -->
           <div>
             <label for="login-email" class="block text-sm text-gray-700 mb-1">Email</label>
             <input
@@ -34,7 +34,7 @@ import { AuthService } from '../../services/auth.service';
             }
           </div>
 
-          <!-- Password -->
+          <!-- Password input with validation errors -->
           <div>
             <label for="login-password" class="block text-sm text-gray-700 mb-1"
               >Mot de passe</label
@@ -57,6 +57,7 @@ import { AuthService } from '../../services/auth.service';
             }
           </div>
 
+          <!-- Submit button with loading state -->
           <button
             type="submit"
             [disabled]="form.invalid || loading()"
@@ -69,10 +70,12 @@ import { AuthService } from '../../services/auth.service';
             }
           </button>
 
+          <!-- Display authentication error -->
           @if (error()) {
             <p class="text-sm text-red-600 text-center mt-2">{{ error() }}</p>
           }
 
+          <!-- Link to register page -->
           <p class="text-center text-sm text-gray-600 mt-4">
             Pas de compte ?
             <a routerLink="/auth/register" class="text-blue-600 hover:underline">Créer un compte</a>
@@ -83,19 +86,22 @@ import { AuthService } from '../../services/auth.service';
   `,
 })
 export class LoginComponent {
-  private fb = inject(FormBuilder);
-  private auth = inject(AuthService);
-  private router = inject(Router);
-  private route = inject(ActivatedRoute);
+  private fb = inject(FormBuilder); // form builder
+  private auth = inject(AuthService); // auth service
+  private router = inject(Router); // navigation
+  private route = inject(ActivatedRoute); // to read query params
 
+  // Reactive form definition
   form: FormGroup = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
+  // UI state signals
   loading = signal(false);
   error = signal<string>('');
 
+  // Handle form submission
   async onSubmit() {
     if (this.form.invalid) return;
 
@@ -105,23 +111,27 @@ export class LoginComponent {
     const creds = this.form.value as { email: string; password: string };
 
     try {
-      await this.auth.login(creds); // <- Promise<User>
+      // try to login with AuthService
+      await this.auth.login(creds);
       this.loading.set(false);
 
-      // défaut: /dashboard ; si on venait d’un guard, on respecte returnUrl
+      // redirect to returnUrl or dashboard
       const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
       await this.router.navigate([returnUrl]);
     } catch (err: unknown) {
+      // handle authentication error
       this.loading.set(false);
       this.error.set(err instanceof Error ? err.message : 'Erreur de connexion');
     }
   }
 
+  // Check if a control is invalid (used in template)
   invalid(ctrl: keyof typeof this.form.value): boolean {
     const c = this.form.get(ctrl as string);
     return !!(c && c.invalid && (c.dirty || c.touched));
   }
 
+  // Return proper error message for a control
   errorOf(ctrl: keyof typeof this.form.value): string {
     const c = this.form.get(ctrl as string);
     if (!c?.errors) return '';

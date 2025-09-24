@@ -18,7 +18,7 @@ class StubNavbar {}
 })
 class StubCmp {}
 
-describe('App (câblage minimal)', () => {
+describe('App (intégration légère)', () => {
   beforeEach(async () => {
     localStorage.clear();
 
@@ -40,20 +40,18 @@ describe('App (câblage minimal)', () => {
         provideLocationMocks(),
       ],
     });
+
     tb.overrideComponent(App, { set: { imports: [RouterOutlet, StubNavbar] } });
 
     await tb.compileComponents();
   });
 
-  it('créer le composant racine', () => {
+  it('instancier App et afficher la navbar factice', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
-    expect(fixture.componentInstance).toBeTruthy();
-  });
 
-  it('afficher la navbar factice quand la route ≠ /auth', () => {
-    const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
+    expect(fixture.componentInstance).toBeTruthy();
+
     const el: HTMLElement = fixture.nativeElement;
     expect(el.querySelector('[data-testid="stub-navbar"]')).toBeTruthy();
   });

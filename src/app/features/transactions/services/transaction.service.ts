@@ -13,7 +13,6 @@ export class TransactionService {
   private txSig = signal<Transaction[]>(this.load());
   transactions = computed(() => this.txSig());
 
-  // agrégats utiles (inclut 'livret')
   totalByAssetType = computed(() => {
     const map: Record<'stock' | 'etf' | 'crypto' | 'livret', number> = {
       stock: 0,
@@ -102,7 +101,6 @@ export class TransactionService {
     return next.length < before;
   }
 
-  // storage
   private load(): Transaction[] {
     const raw = safeStorage.getItem(LS_TX_KEY);
     if (!raw) return [];
