@@ -13,11 +13,17 @@ export class TransactionService {
   private txSig = signal<Transaction[]>(this.load());
   transactions = computed(() => this.txSig());
 
-  // agrégats utiles
+  // agrégats utiles (inclut 'livret')
   totalByAssetType = computed(() => {
-    const map: Record<'stock' | 'etf' | 'crypto', number> = { stock: 0, etf: 0, crypto: 0 };
+    const map: Record<'stock' | 'etf' | 'crypto' | 'livret', number> = {
+      stock: 0,
+      etf: 0,
+      crypto: 0,
+      livret: 0,
+    };
     for (const t of this.txSig()) {
-      map[t.assetType] += t.total;
+      const k = (t.assetType as 'stock' | 'etf' | 'crypto' | 'livret') || 'stock';
+      map[k] += t.total;
     }
     return map;
   });
@@ -72,9 +78,7 @@ export class TransactionService {
 
       const merged = { ...t, ...patch } as Transaction;
 
-      // recalculer le total si des champs impactants ont changé
-      const type = merged.type;
-      const signed = type === 'buy' ? 1 : -1;
+      const signed = merged.type === 'buy' ? 1 : -1;
       const quantity = merged.quantity;
       const pricePerUnit = merged.pricePerUnit;
       const fees = merged.fees ?? 0;

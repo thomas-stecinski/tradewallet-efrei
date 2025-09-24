@@ -1,6 +1,7 @@
-page admin visualisation global 
 
-de rendement en fonction des dernières transactions 
+Pipe pour nom / prenom 
+
+faire du menage dans le design simple propre clean 
 
 3 test unitaire, un test de composant (integration)
 

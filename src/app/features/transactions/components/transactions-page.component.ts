@@ -17,6 +17,9 @@ import { TransactionService } from '../services/transaction.service';
 import { PortfolioService } from '../../portfolio/services/portfolio.service';
 import { AuthService } from '../../auth/services/auth.service';
 import { CreateTransactionDto, Transaction } from '../../../core/models/transaction.model';
+import { PriceService } from '../../market/services/price.service';
+
+import { LivretAmountWidgetComponent } from '../../market/components/livret-amount-widget.component';
 
 function positive(control: AbstractControl): ValidationErrors | null {
   const v = Number(control.value);
@@ -27,59 +30,61 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
 @Component({
   standalone: true,
   selector: 'app-transactions-page',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, DatePipe, CurrencyPipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    RouterLink,
+    DatePipe,
+    CurrencyPipe,
+    LivretAmountWidgetComponent,
+  ],
   template: `
-    <section class="max-w-5xl mx-auto space-y-6">
+    <section class="max-w-6xl mx-auto space-y-8">
+      <!-- Header -->
       <header class="flex items-center justify-between">
-        <h1 class="text-2xl font-bold">Transactions</h1>
+        <h1 class="text-3xl font-bold tracking-tight">Transactions</h1>
         @if (portfolios().length === 0) {
-          <a routerLink="/portfolio" class="px-3 py-2 rounded-lg border hover:bg-gray-50">
-            Créer un portefeuille
-          </a>
+          <a routerLink="/portfolio" class="btn-primary"> Créer un portefeuille </a>
         }
       </header>
 
+      <!-- Message si aucun portefeuille -->
       @if (portfolios().length === 0) {
-        <div class="rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div class="rounded-xl border border-amber-300 bg-amber-50 p-5">
           <p class="text-amber-800">
-            Aucun portefeuille trouvé. Crée-en un pour pouvoir enregistrer des transactions.
+            Aucun portefeuille trouvé. Créez-en un pour pouvoir enregistrer vos transactions.
           </p>
-          <a
-            routerLink="/portfolio"
-            class="inline-flex items-center mt-3 px-3 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700"
-            >Créer un portefeuille</a
-          >
+          <a routerLink="/portfolio" class="inline-block mt-3 btn-amber"> Créer un portefeuille </a>
         </div>
       }
 
       <!-- Formulaire -->
-      <div class="bg-white rounded-2xl shadow p-6 space-y-5">
-        <div class="flex items-center justify-between">
+      <div class="bg-white rounded-2xl shadow-md p-6 space-y-5">
+        <div class="flex items-center justify-between border-b pb-3">
           <h2 class="text-lg font-semibold">
-            {{ editId() ? 'Modifier la transaction' : 'Ajouter une transaction' }}
+            {{ editId() ? 'Modifier la transaction' : 'Nouvelle transaction' }}
           </h2>
           @if (editId()) {
             <button
               type="button"
               (click)="resetForm()"
-              class="text-sm text-gray-600 hover:underline"
+              class="text-sm text-gray-500 hover:text-gray-700"
             >
-              Annuler l’édition
+              Annuler
             </button>
           }
         </div>
 
-        <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-4">
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="space-y-5">
           <!-- Ligne 1 -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label for="pf" class="block text-sm font-medium text-gray-700 mb-1"
-                >Portefeuille</label
-              >
+              <label for="pf" class="label">Portefeuille</label>
               <select
                 id="pf"
                 formControlName="portfolioId"
-                class="w-full border rounded-lg px-3 py-2"
+                class="input"
                 [disabled]="portfolios().length === 0"
               >
                 @for (p of portfolios(); track p.id) {
@@ -89,13 +94,12 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
             </div>
 
             <div>
-              <label for="asset" class="block text-sm font-medium text-gray-700 mb-1"
-                >Type d'actif</label
-              >
+              <label for="asset" class="label">Type d'actif</label>
               <select
                 id="asset"
                 formControlName="assetType"
-                class="w-full border rounded-lg px-3 py-2"
+                class="input"
+                (change)="onAssetTypeSelect($any($event.target).value)"
               >
                 <option value="stock">Action</option>
                 <option value="etf">ETF</option>
@@ -103,173 +107,170 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
                 <option value="livret">Livret</option>
               </select>
             </div>
-
             <div>
-              <label for="t" class="block text-sm font-medium text-gray-700 mb-1"
-                >Type d'ordre</label
-              >
-              <select id="t" formControlName="type" class="w-full border rounded-lg px-3 py-2">
+              <label for="t" class="label">Type d'ordre</label>
+              <select id="t" formControlName="type" class="input">
                 <option value="buy">Achat</option>
                 <option value="sell">Vente</option>
               </select>
             </div>
           </div>
 
-          <!-- Symbole (input + datalist + select) -->
+          <!-- Symbole -->
           <div>
-            <label for="symbol" class="block text-sm font-medium text-gray-700 mb-1">Symbole</label>
-            <div class="flex gap-2 items-center">
-              <input
-                id="symbol"
-                type="text"
-                formControlName="symbol"
-                class="w-full border rounded-lg px-3 py-2"
-                placeholder="Ex: AAPL, BTC, CSPX"
-                list="symbolOptions"
-                (input)="ensureUpper()"
-                (focus)="ensureUpper()"
-              />
-              <select
-                class="min-w-[14rem] border rounded-lg px-2 py-2"
-                [disabled]="knownSymbols().length === 0"
-                (change)="onPickExisting($any($event.target).value)"
-              >
-                <option value="">
-                  {{
-                    knownSymbols().length
-                      ? '— Sélectionner (' + knownSymbols().length + ') —'
-                      : 'Aucun symbole'
-                  }}
-                </option>
-                @for (s of knownSymbols(); track s) {
-                  <option [value]="s">{{ s }}</option>
-                }
-              </select>
-            </div>
-            <datalist id="symbolOptions">
-              @for (s of knownSymbols(); track s) {
-                <option [value]="s"></option>
+            <label
+              class="label"
+              [attr.for]="assetTypeSel() === 'livret' ? 'symbolLivret' : 'symbol'"
+            >
+              Symbole
+            </label>
+
+            <!-- LIVRET = menu déroulant UNIQUEMENT (responsive) -->
+            @if (assetTypeSel() === 'livret') {
+              <div class="flex flex-wrap items-center gap-2">
+                <select id="symbolLivret" class="input w-full md:w-72" formControlName="symbol">
+                  <option value="" disabled>— Choisir un livret —</option>
+                  @for (s of livretOptions(); track s) {
+                    <option [value]="s">{{ s }}</option>
+                  }
+                </select>
+              </div>
+
+              @if (form.controls['symbol'].invalid && form.controls['symbol'].touched) {
+                <p class="text-xs text-red-600 mt-1">Sélectionne un livret</p>
               }
-            </datalist>
-            @if (form.controls['symbol']?.invalid && form.controls['symbol']?.touched) {
-              <p class="text-xs text-red-600 mt-1">Symbole requis</p>
+            }
+
+            <!-- AUTRES ACTIFS = input + petit select -->
+            @else {
+              <div class="grid grid-cols-12 gap-2">
+                <input
+                  id="symbol"
+                  type="text"
+                  formControlName="symbol"
+                  class="input col-span-7 md:col-span-10"
+                  placeholder="Ex: AAPL, BTC, CSPX"
+                  list="symbolOptions"
+                  (input)="ensureUpper()"
+                  (focus)="ensureUpper()"
+                />
+                <select
+                  class="input col-span-5 md:col-span-2 shrink-0"
+                  [disabled]="knownSymbols().length === 0"
+                  (change)="onPickExisting($any($event.target).value)"
+                >
+                  <option value="">
+                    {{ knownSymbols().length ? '— Choisir —' : 'Aucun symbole' }}
+                  </option>
+                  @for (s of knownSymbols(); track s) {
+                    <option [value]="s">{{ s }}</option>
+                  }
+                </select>
+              </div>
+              <datalist id="symbolOptions">
+                @for (s of knownSymbols(); track s) {
+                  <option [value]="s"></option>
+                }
+              </datalist>
+
+              @if (form.controls['symbol'].invalid && form.controls['symbol'].touched) {
+                <p class="text-xs text-red-600 mt-1">Symbole requis</p>
+              }
             }
           </div>
 
           <!-- Champs dynamiques -->
           @if (assetTypeSel() === 'livret') {
-            <div class="grid grid-cols-1 gap-4">
-              <div>
-                <label for="ppu" class="block text-sm font-medium text-gray-700 mb-1"
-                  >Montant (EUR)</label
-                >
-                <input
-                  id="ppu"
-                  type="number"
-                  step="any"
-                  formControlName="pricePerUnit"
-                  class="w-full border rounded-lg px-3 py-2"
-                />
-                <p class="text-xs text-gray-500 mt-1">
-                  Pour les livrets : quantité = 1, frais = 0.
-                </p>
-              </div>
+            <div>
+              <label for="ppu" class="label">Montant (EUR)</label>
+              <input
+                id="ppu"
+                type="number"
+                step="any"
+                formControlName="pricePerUnit"
+                class="input"
+              />
+              <p class="text-xs text-gray-500 mt-1">Pour les livrets : quantité = 1, frais = 0.</p>
             </div>
           } @else {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label for="qty" class="block text-sm font-medium text-gray-700 mb-1"
-                  >Quantité</label
-                >
-                <input
-                  id="qty"
-                  type="number"
-                  step="any"
-                  formControlName="quantity"
-                  class="w-full border rounded-lg px-3 py-2"
-                />
+                <label for="qty" class="label">Quantité</label>
+                <input id="qty" type="number" step="any" formControlName="quantity" class="input" />
               </div>
               <div>
-                <label for="ppu" class="block text-sm font-medium text-gray-700 mb-1"
-                  >Prix unitaire (EUR)</label
-                >
+                <label for="ppu2" class="label">Prix unitaire (EUR)</label>
                 <input
-                  id="ppu"
+                  id="ppu2"
                   type="number"
                   step="any"
                   formControlName="pricePerUnit"
-                  class="w-full border rounded-lg px-3 py-2"
+                  class="input"
                 />
               </div>
               <div>
-                <label for="fees" class="block text-sm font-medium text-gray-700 mb-1"
-                  >Frais (EUR)</label
-                >
-                <input
-                  id="fees"
-                  type="number"
-                  step="any"
-                  formControlName="fees"
-                  class="w-full border rounded-lg px-3 py-2"
-                />
+                <label for="fees" class="label">Frais (EUR)</label>
+                <input id="fees" type="number" step="any" formControlName="fees" class="input" />
                 <p class="text-xs text-gray-500 mt-1">Optionnel</p>
               </div>
             </div>
           }
 
-          <div class="pt-2">
+          <!-- Boutons -->
+          <div class="flex gap-3">
             <button
               type="submit"
               [disabled]="form.invalid || saving() || portfolios().length === 0"
-              class="px-4 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              class="btn-primary"
             >
               {{ saving() ? 'Enregistrement…' : editId() ? 'Mettre à jour' : 'Ajouter' }}
             </button>
             @if (editId()) {
-              <button
-                type="button"
-                (click)="resetForm()"
-                class="ml-2 px-4 py-2.5 rounded-lg border hover:bg-gray-50"
-              >
-                Annuler
-              </button>
+              <button type="button" (click)="resetForm()" class="btn-secondary">Annuler</button>
             }
           </div>
         </form>
       </div>
 
+      <!-- Widget Livret -->
+      <app-livret-amount-widget></app-livret-amount-widget>
+
       <!-- Liste -->
-      <div class="overflow-auto rounded-2xl border bg-white">
+      <div class="bg-white rounded-2xl shadow-md overflow-hidden">
         <table class="min-w-full text-sm">
-          <thead class="bg-gray-50 text-left">
+          <thead class="bg-gray-100 text-gray-700">
             <tr>
-              <th class="px-3 py-2">Date</th>
-              <th class="px-3 py-2">Portefeuille</th>
-              <th class="px-3 py-2">Actif</th>
-              <th class="px-3 py-2">Symbole</th>
-              <th class="px-3 py-2">Type</th>
-              <th class="px-3 py-2 text-right">Qté</th>
-              <th class="px-3 py-2 text-right">Prix (EUR)</th>
-              <th class="px-3 py-2 text-right">Frais (EUR)</th>
-              <th class="px-3 py-2 text-right"></th>
+              <th class="th">Date</th>
+              <th class="th">Portefeuille</th>
+              <th class="th">Actif</th>
+              <th class="th">Symbole</th>
+              <th class="th">Type</th>
+              <th class="th text-right">Qté</th>
+              <th class="th text-right">Prix (EUR)</th>
+              <th class="th text-right">Frais (EUR)</th>
+              <th class="th text-right"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="divide-y">
             @for (t of mineSorted(); track t.id) {
-              <tr class="border-t hover:bg-gray-50">
-                <td class="px-3 py-2 whitespace-nowrap">{{ t.createdAt | date: 'dd/MM/yyyy' }}</td>
-                <td class="px-3 py-2">{{ portfolioNameOf(t.portfolioId) }}</td>
-                <td class="px-3 py-2 capitalize">{{ t.assetType }}</td>
-                <td class="px-3 py-2">{{ t.symbol }}</td>
-                <td class="px-3 py-2 uppercase">{{ t.type }}</td>
-                <td class="px-3 py-2 text-right">{{ t.quantity }}</td>
-                <td class="px-3 py-2 text-right">{{ t.pricePerUnit | number: '1.2-2' }}</td>
-                <td class="px-3 py-2 text-right">{{ t.fees ?? 0 | currency: 'EUR' }}</td>
-                <td class="px-3 py-2 text-right">
-                  <button (click)="edit(t)" class="text-blue-600 hover:underline mr-3">
+              <tr class="hover:bg-gray-50">
+                <td class="td">{{ t.createdAt | date: 'dd/MM/yyyy' }}</td>
+                <td class="td">{{ portfolioNameOf(t.portfolioId) }}</td>
+                <td class="td capitalize">{{ t.assetType }}</td>
+                <td class="td">{{ t.symbol }}</td>
+                <td class="td uppercase">{{ t.type }}</td>
+                <td class="td text-right">{{ t.quantity }}</td>
+                <td class="td text-right">{{ t.pricePerUnit | number: '1.2-2' }}</td>
+                <td class="td text-right">{{ t.fees ?? 0 | currency: 'EUR' }}</td>
+                <td class="td text-right space-x-2">
+                  <button type="button" (click)="edit(t)" class="text-blue-600 hover:underline">
                     Éditer
                   </button>
-                  <button (click)="onDelete(t.id)" class="text-red-600 hover:underline">
+                  <button
+                    type="button"
+                    (click)="onDelete(t.id)"
+                    class="text-red-600 hover:underline"
+                  >
                     Supprimer
                   </button>
                 </td>
@@ -280,12 +281,38 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
       </div>
     </section>
   `,
+  styles: [
+    `
+      .label {
+        @apply block text-sm font-medium text-gray-700 mb-1;
+      }
+      .input {
+        @apply w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none;
+      }
+      .btn-primary {
+        @apply px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50;
+      }
+      .btn-secondary {
+        @apply px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50 transition;
+      }
+      .btn-amber {
+        @apply px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition;
+      }
+      .th {
+        @apply px-3 py-2 text-left font-medium;
+      }
+      .td {
+        @apply px-3 py-2 whitespace-nowrap;
+      }
+    `,
+  ],
 })
 export class TransactionsPageComponent {
   private fb = inject(FormBuilder);
   private txSrv = inject(TransactionService);
   private pfSrv = inject(PortfolioService);
   private auth = inject(AuthService);
+  private prices = inject(PriceService);
 
   saving = signal(false);
   editId = signal<number | null>(null);
@@ -302,9 +329,16 @@ export class TransactionsPageComponent {
     fees: [0],
   });
 
-  // ---- BRIDGE FORM CONTROL -> SIGNAL (sans toSignal)
   private assetTypeCtrl = this.form.get('assetType') as FormControl<AssetType>;
   assetTypeSel = signal<AssetType>(this.assetTypeCtrl.value ?? 'stock');
+
+  /** Options proposées pour les livrets (historique utilisateur + classiques) */
+  livretOptions = computed(() => {
+    const set = this.symbolsByType().livret;
+    const existants = set ? Array.from(set) : [];
+    const classiques = ['Livret A', 'LDDS', 'LEP', 'Livret Jeune'];
+    return Array.from(new Set([...classiques, ...existants])).sort((a, b) => a.localeCompare(b));
+  });
 
   constructor() {
     const u = this.auth.currentUser();
@@ -312,34 +346,38 @@ export class TransactionsPageComponent {
     this.portfolios.set(list);
     if (list.length > 0) this.form.patchValue({ portfolioId: list[0].id });
 
-    // sync control -> signal
     this.assetTypeCtrl.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((v) => this.assetTypeSel.set((v ?? 'stock') as AssetType));
 
-    // livret: champs dynamiques
     this.onAssetTypeChange(this.assetTypeSel());
     this.assetTypeCtrl.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((t: AssetType) => this.onAssetTypeChange(t));
 
-    // auto-bascule de type si aucun symbole pour le type sélectionné
+    // auto-switch vers le type le plus fréquent si aucun symbole saisi
     effect(() => {
       if (this.editId()) return;
       const ctrlType = this.assetTypeCtrl;
-
       const curType = this.assetTypeSel();
       const knownCur = this.knownSymbols();
       const prefType = this.preferredType();
-
       if (knownCur.length === 0 && prefType && prefType !== curType) {
         ctrlType.setValue(prefType);
-        return;
       }
     });
   }
 
-  // symboles existants par type
+  onAssetTypeSelect(value: string) {
+    const v = (value as AssetType) || 'stock';
+    this.assetTypeCtrl.setValue(v);
+  }
+  onPickExisting(value: string) {
+    if (!value) return;
+    this.form.get('symbol')!.setValue(value);
+  }
+
+  // sets de symboles PAR UTILISATEUR
   symbolsByType = computed(() => {
     const u = this.auth.currentUser();
     const map: Record<AssetType, Set<string>> = {
@@ -356,7 +394,6 @@ export class TransactionsPageComponent {
     return map;
   });
 
-  // type avec le plus de symboles
   preferredType = computed<AssetType | null>(() => {
     const m = this.symbolsByType();
     let best: AssetType | null = null;
@@ -371,7 +408,6 @@ export class TransactionsPageComponent {
     return max > 0 ? best : null;
   });
 
-  // symboles connus pour type courant
   knownSymbols = computed<string[]>(() => {
     const t = this.assetTypeSel();
     const set = this.symbolsByType()[t] as Set<string>;
@@ -380,18 +416,14 @@ export class TransactionsPageComponent {
       .sort((a, b) => a.localeCompare(b));
   });
 
-  onPickExisting(symbol: string) {
-    if (!symbol) return;
-    this.form.get('symbol')!.setValue(symbol);
-  }
-
   ensureUpper() {
     const c = this.form.get('symbol')!;
-    const up = this.normalize(c.value || '');
-    if (up !== c.value) c.setValue(up, { emitEvent: false });
+    const raw = (c.value || '') as string;
+    if (this.assetTypeSel() === 'livret') return; // livret : pas de forçage de casse
+    const up = this.normalize(raw);
+    if (up !== raw) c.setValue(up, { emitEvent: false });
   }
 
-  // Liste triée
   mineSorted = computed(() => {
     const u = this.auth.currentUser();
     if (!u) return [] as Transaction[];
@@ -414,6 +446,8 @@ export class TransactionsPageComponent {
       qty.disable({ emitEvent: false });
       fees.setValue(0, { emitEvent: false });
       fees.disable({ emitEvent: false });
+
+      if (!this.form.get('symbol')?.value) this.form.get('symbol')?.markAsTouched();
     } else {
       if (qty.disabled) qty.enable({ emitEvent: false });
       if (fees.disabled) fees.enable({ emitEvent: false });
@@ -422,7 +456,7 @@ export class TransactionsPageComponent {
 
   resetForm() {
     const pf = this.form.get('portfolioId')!.value ?? this.portfolios()[0]?.id ?? null;
-    const at = this.assetTypeSel(); // garde le type courant
+    const at = this.assetTypeSel();
     this.form.reset({
       portfolioId: pf,
       assetType: at,
@@ -442,7 +476,7 @@ export class TransactionsPageComponent {
       portfolioId: t.portfolioId,
       assetType: t.assetType,
       type: t.type,
-      symbol: this.normalize(t.symbol),
+      symbol: t.symbol || '',
       quantity: t.quantity,
       pricePerUnit: t.pricePerUnit,
       fees: t.fees ?? 0,
@@ -471,12 +505,20 @@ export class TransactionsPageComponent {
     const v = this.form.getRawValue();
     const isLivret = v.assetType === 'livret';
 
+    let symbol = (v.symbol || '').trim();
+    if (isLivret) {
+      const up = symbol.toUpperCase();
+      if (!up.startsWith('LIVRET')) symbol = `Livret ${symbol}`;
+    } else {
+      symbol = this.normalize(symbol);
+    }
+
     const dto: CreateTransactionDto = {
       userId: user.id,
       portfolioId: Number(v.portfolioId),
       type: v.type,
       assetType: v.assetType,
-      symbol: this.normalize(v.symbol),
+      symbol,
       quantity: isLivret ? 1 : Number(v.quantity),
       pricePerUnit: Number(v.pricePerUnit),
       fees: isLivret ? 0 : Number(v.fees ?? 0),
