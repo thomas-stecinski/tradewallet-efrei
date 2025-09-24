@@ -1,22 +1,20 @@
-
-Pipe pour nom / prenom 
-
-3 test unitaire, un test de composant (integration)
-
-prod 
+## Tradewallet – Angular Project
 
 
-application et différentes features
+### Installation
 
-le flux de datas 
+1. Installer les dépendances :
+   npm install
 
-repository
-
-presenter le code vite fait (fichier)
-
-composants personnalisé
-
+2. Lancer le serveur de développement :
+   npm start
+   -> Accessible sur http://localhost:4200
 
 
+### Tests
 
+1. Lancer les tests unitaires et d'intégration :
+   npm run test
 
+2. Vérifier le linting :
+   npm run lint
