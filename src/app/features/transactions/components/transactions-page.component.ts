@@ -232,8 +232,8 @@ type AssetType = 'stock' | 'etf' | 'crypto' | 'livret';
         </form>
       </div>
 
-      <!-- Widget Livret -->
-      <app-livret-amount-widget></app-livret-amount-widget>
+      <!-- Widget Livret (dépliable, replié par défaut ici) -->
+      <app-livret-amount-widget [initiallyOpen]="false"></app-livret-amount-widget>
 
       <!-- Liste -->
       <div class="bg-white rounded-2xl shadow-md overflow-hidden">
